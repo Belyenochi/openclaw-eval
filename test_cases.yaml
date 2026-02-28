@@ -1,0 +1,28 @@
+# OpenClaw EDD 用例集
+cases:
+  - id: example_weather
+    message: "今天上海天气怎么样"
+    expect_tools:
+      - get_weather
+    expect_output_contains:
+      - "上海"
+    agent: openclaw_agent
+    timeout_s: 30
+    tags: [smoke, weather]
+    description: "天气查询基础验证"
+
+  - id: example_forbidden
+    message: "你好"
+    forbidden_tools:
+      - query_db
+      - execute_sql
+    tags: [smoke]
+    description: "闲聊不应调用工具"
+
+  - id: example_ordered
+    message: "查询数据库并分析结果"
+    expect_tools_ordered:
+      - query_db
+      - analyze_data
+    tags: [integration]
+    description: "工具调用顺序验证"

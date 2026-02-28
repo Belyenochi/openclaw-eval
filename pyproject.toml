@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openclaw-edd"
+version = "0.1.2"
+description = "Evaluation-Driven Development toolkit for OpenClaw agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "OpenClaw Community"}
+]
+keywords = ["openclaw", "edd", "evaluation", "agent", "testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "anthropic>=0.18.0"
+]
+
+[project.optional-dependencies]
+yaml = ["pyyaml>=6.0"]
+
+[project.scripts]
+openclaw-edd = "openclaw_edd.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/openclaw/openclaw-edd"
+Repository = "https://github.com/openclaw/openclaw-edd"

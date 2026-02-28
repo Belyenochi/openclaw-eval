@@ -1,0 +1,22 @@
+[
+  {
+    "case": {
+      "id": "test_001",
+      "message": "列出当前目录的文件"
+    },
+    "tool_names": ["Bash"],
+    "final_output": "当前目录包含以下文件：\n- README.md\n- pyproject.toml\n- src/\n- tests/",
+    "passed": true,
+    "duration_s": 1.2
+  },
+  {
+    "case": {
+      "id": "test_002",
+      "message": "读取 README.md 文件内容"
+    },
+    "tool_names": ["Read"],
+    "final_output": "README.md 文件内容已读取，包含项目介绍和使用说明。",
+    "passed": true,
+    "duration_s": 0.8
+  }
+]
