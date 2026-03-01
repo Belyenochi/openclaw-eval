@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.jpg" alt="openclaw-edd logo" width="200">
+</p>
+
 # openclaw-edd
 
 [![CI](https://github.com/Belyenochi/openclaw-edd/actions/workflows/ci.yml/badge.svg)](https://github.com/Belyenochi/openclaw-edd/actions)

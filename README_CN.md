@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.jpg" alt="openclaw-edd logo" width="200">
+</p>
+
 # openclaw-edd
 
 **Evaluation-Driven Development toolkit for OpenClaw agents**
