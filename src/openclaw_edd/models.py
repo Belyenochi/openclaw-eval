@@ -65,6 +65,11 @@ class EvalResult:
     checks: dict = field(default_factory=dict)
     session_id: str | None = None
     timestamp: str = field(default_factory=lambda: datetime.datetime.now().isoformat())
+    model: str = ""
+    provider: str = ""
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cost: float = 0.0
 
     @property
     def tool_names(self) -> list[str]:

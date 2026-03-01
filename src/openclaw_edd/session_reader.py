@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Generator
+from typing import Any, Generator
 
 from .models import Event
 
@@ -140,6 +140,27 @@ def extract_tool_call_info(message: dict) -> dict | None:
         }
 
     return None
+
+
+def extract_session_metadata(session_id: str) -> dict[str, Any]:
+    """Extract metadata from session header events.
+
+    Returns dict with keys: model, provider, thinking_level, cwd, session_version.
+    """
+    metadata: dict[str, Any] = {}
+    for message in read_session_messages(session_id):
+        msg_type = message.get("type", "")
+        if msg_type == "session":
+            metadata["cwd"] = message.get("cwd", "")
+            metadata["session_version"] = message.get("version")
+        elif msg_type == "model_change":
+            metadata["provider"] = message.get("provider", "")
+            metadata["model"] = message.get("modelId", "")
+        elif msg_type == "thinking_level_change":
+            metadata["thinking_level"] = message.get("thinkingLevel", "")
+        elif msg_type == "message":
+            break  # Stop after header events
+    return metadata
 
 
 def build_events_from_session(session_id: str) -> list[Event]:

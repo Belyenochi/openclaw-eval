@@ -607,6 +607,12 @@ def run_eval_case(
     # Check assertions
     passed, failures, checks = check_assertions(case, events, final_output)
 
+    # Extract session metadata and aggregate usage
+    metadata = session_reader.extract_session_metadata(session_id) if session_id else {}
+    total_input = sum(e.usage.get("input", 0) for e in events if e.usage)
+    total_output = sum(e.usage.get("output", 0) for e in events if e.usage)
+    total_cost = sum(e.usage.get("cost", {}).get("total", 0) for e in events if e.usage)
+
     return EvalResult(
         case=case,
         passed=passed,
@@ -617,6 +623,11 @@ def run_eval_case(
         checks=checks,
         session_id=session_id,
         timestamp=datetime.now().isoformat(),
+        model=metadata.get("model", ""),
+        provider=metadata.get("provider", ""),
+        total_input_tokens=total_input,
+        total_output_tokens=total_output,
+        total_cost=total_cost,
     )
 
 
@@ -895,8 +906,25 @@ def cmd_run(args: Any) -> None:
                 print(f"      ...  {len(passed_cap) - 5} ")
         print()
 
+    # Aggregate cost info across all results
+    all_models = set(r.model for r in results if r.model)
+    all_providers = set(r.provider for r in results if r.provider)
+    total_input_tokens = sum(r.total_input_tokens for r in results)
+    total_output_tokens = sum(r.total_output_tokens for r in results)
+    total_cost = sum(r.total_cost for r in results)
+
     print("─" * 60)
     print(f"complete: {passed_count}/{total_count} Passed ({pass_rate:.0f}%)")
+
+    # Print model and cost info if available
+    if all_models:
+        model_str = ", ".join(sorted(all_models))
+        provider_str = f" ({', '.join(sorted(all_providers))})" if all_providers else ""
+        print(f"Model: {model_str}{provider_str}")
+    if total_input_tokens or total_output_tokens:
+        print(f"Tokens: {total_input_tokens:,} input / {total_output_tokens:,} output")
+    if total_cost:
+        print(f"Cost: ¥{total_cost:.4f}")
 
     failed_cases = [r for r in results if not r.passed]
     if failed_cases:
