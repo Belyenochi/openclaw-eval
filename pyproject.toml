@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openclaw-edd"
-version = "0.2.2"
+version = "0.2.3"
 description = "Evaluation-Driven Development toolkit for OpenClaw agents"
 readme = "README.md"
 license = {text = "MIT"}

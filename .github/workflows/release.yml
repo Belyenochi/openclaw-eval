@@ -6,7 +6,8 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write   # needed to create GitHub Release
+  contents: write
+  id-token: write
 
 jobs:
   release:
@@ -23,19 +24,13 @@ jobs:
           python-version: '3.11'
 
       - name: Install build tools
-        run: pip install build twine
+        run: pip install build
 
       - name: Build distribution
         run: python -m build
 
-      - name: Check distribution
-        run: twine check dist/*
-
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
