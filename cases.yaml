@@ -1,0 +1,36 @@
+# OpenClaw EDD 用例集
+cases:
+  - id: example_weather
+    message: "今天上海天气怎么样"
+    eval_type: regression
+    expect_tools:
+      - exec
+    expect_commands:
+      - "open-meteo"
+      - "shanghai"
+    expect_output_contains:
+      - "上海"
+    timeout_s: 60
+    tags: [smoke, weather]
+    description: "天气查询基础验证（OpenClaw 通过 exec 执行命令）"
+
+  - id: example_forbidden
+    message: "你好"
+    eval_type: regression
+    forbidden_tools:
+      - exec
+    expect_output_contains:
+      - "你好"
+    tags: [smoke]
+    description: "闲聊不应调用命令"
+
+  - id: example_ordered
+    message: "列出当前工作区的文件，并统计有多少个"
+    eval_type: capability
+    expect_tools:
+      - exec
+    expect_commands_ordered:
+      - "ls"
+      - "wc"
+    tags: [integration]
+    description: "命令顺序验证（OpenClaw 通过 exec 执行命令）"

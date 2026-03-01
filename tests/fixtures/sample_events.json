@@ -1,0 +1,20 @@
+[
+  {
+    "kind": "tool_end",
+    "tool": "exec",
+    "input": {"command": "ls -la"},
+    "output": "",
+    "duration_ms": 12,
+    "ts": "2026-03-01T00:00:00Z",
+    "session_id": "abc"
+  },
+  {
+    "kind": "llm_response",
+    "tool": "",
+    "input": {},
+    "output": "There are 10 files.",
+    "duration_ms": null,
+    "ts": "2026-03-01T00:00:01Z",
+    "session_id": "abc"
+  }
+]

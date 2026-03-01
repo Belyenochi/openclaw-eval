@@ -1,60 +1,63 @@
 """
-Eval 命令实现
+Eval command implementation
 
-负责：
-- run: 运行评测用例集
-- gen-cases: 生成用例模板
+Responsibilities:
+- run: Run evaluation cases
+- gen-cases: Generate case template
 """
+
+from __future__ import annotations
 
 import json
 import subprocess
 import sys
 import time
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-from .models import EvalCase, EvalResult
-from .tracer import read_logs_for_session, extract_events, _is_turn_end
+from .models import EvalCase, EvalResult, Event
+from .tracer import _is_turn_end
+from . import store, session_reader
 
-# 内置用例
+# Built-in cases
 BUILTIN_CASES = [
     {
         "id": "weather_shanghai",
-        "message": "今天上海天气怎么样",
+        "message": "What's the weather in Shanghai today?",
         "expect_tools": ["get_weather"],
-        "description": "天气查询基础验证"
+        "description": "Weather query basic check"
     },
     {
         "id": "mysql_slow_query",
-        "message": "MySQL 最近有慢查询吗",
+        "message": "Any slow queries in MySQL recently?",
         "expect_tools": ["query_metrics"],
-        "description": "MySQL 慢查询检测"
+        "description": "MySQL slow query check"
     },
     {
         "id": "no_tool_chitchat",
-        "message": "你好",
+        "message": "Hello",
         "forbidden_tools": ["query_db", "execute_sql"],
-        "description": "闲聊不应调用工具"
+        "description": "Chat should not call tools"
     },
 ]
 
 
 def load_cases(cases_file: str = None) -> list[EvalCase]:
-    """加载测试用例"""
+    """Load test cases"""
     if not cases_file:
         return [EvalCase(**c) for c in BUILTIN_CASES]
 
     cases_path = Path(cases_file)
 
-    # 支持 JSONL 格式（golden dataset）
+    # Support JSONL format (golden dataset)
     if cases_path.suffix == '.jsonl':
         try:
             cases = []
             with open(cases_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     record = json.loads(line)
-                    # 从 golden dataset 格式转换为 EvalCase
+                    # Convert golden dataset format to EvalCase
                     for conv in record.get("conversation", []):
                         case_data = {
                             "id": record["id"],
@@ -62,7 +65,7 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
                             "description": record.get("description", ""),
                             "tags": record.get("tags", []),
                         }
-                        # 从 assert 提取期望
+                        # Extract expectations from assertions
                         for assertion in conv.get("assert", []):
                             if assertion["type"] == "tool_called":
                                 if "expect_tools" not in case_data:
@@ -79,6 +82,16 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
                                 if "expect_output_contains" not in case_data:
                                     case_data["expect_output_contains"] = []
                                 case_data["expect_output_contains"].append(assertion["value"])
+                            elif assertion["type"] == "command_contains":
+                                if "expect_commands" not in case_data:
+                                    case_data["expect_commands"] = []
+                                case_data["expect_commands"].append(assertion["value"])
+                            elif assertion["type"] == "command_order":
+                                case_data["expect_commands_ordered"] = assertion["value"]
+                            elif assertion["type"] == "not_command_contains":
+                                if "forbidden_commands" not in case_data:
+                                    case_data["forbidden_commands"] = []
+                                case_data["forbidden_commands"].append(assertion["value"])
                             elif assertion["type"] == "tool_args":
                                 if "expect_tool_args" not in case_data:
                                     case_data["expect_tool_args"] = {}
@@ -88,31 +101,41 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
                         cases.append(EvalCase(**case_data))
             return cases
         except Exception as e:
-            print(f"✗ 加载 JSONL 用例失败: {e}")
+            print(f"✗ Failed to load JSONL cases: {e}")
             sys.exit(1)
 
-    # YAML 格式
+    # JSON 
+    if cases_path.suffix == '.json':
+        try:
+            with open(cases_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return [EvalCase(**c) for c in data.get("cases", [])]
+        except Exception as e:
+            print(f"✗ Failed to load JSON cases: {e}")
+            sys.exit(1)
+
+    # YAML 
     try:
         import yaml
         with open(cases_file, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)
         return [EvalCase(**c) for c in data.get("cases", [])]
     except ImportError:
-        print("✗ 需要安装 PyYAML: pip install pyyaml")
+        print("✗ PyYAML is required: pip install pyyaml")
         sys.exit(1)
     except Exception as e:
-        print(f"✗ 加载用例失败: {e}")
+        print(f"✗ Failed to load cases: {e}")
         sys.exit(1)
 
 
 def send_message(agent: str, message: str, use_local: bool = False) -> str:
-    """发送消息给 agent，返回 session_id"""
+    """Send a message to the agent and return session_id"""
     try:
         cmd = ["openclaw", "agent", f"--agent={agent}", "--json", "--message", message]
         if use_local:
-            cmd.insert(4, "--local")  # 在 --json 之前插入 --local
+            cmd.insert(4, "--local")  # Insert --local before --json
 
-        # 增加超时时间，OpenClaw 处理可能需要较长时间
+        # Increase timeout for OpenClaw processing
         timeout = 120 if use_local else 60
 
         result = subprocess.run(
@@ -122,44 +145,44 @@ def send_message(agent: str, message: str, use_local: bool = False) -> str:
             timeout=timeout
         )
 
-        # 检查命令是否成功执行
+        # Check command execution
         if result.returncode != 0:
-            print(f"⚠ openclaw 命令返回错误码: {result.returncode}")
+            print(f"⚠ openclaw command returned non-zero exit code: {result.returncode}")
             if result.stderr:
-                print(f"   错误信息: {result.stderr[:200]}")
+                print(f"   Error: {result.stderr[:200]}")
             return None
 
-        # 解析 JSON 响应，提取 sessionId
+        # Parse JSON response to extract sessionId
         try:
             data = json.loads(result.stdout)
-            # Gateway 模式: result.meta.agentMeta.sessionId
+            # Gateway mode: result.meta.agentMeta.sessionId
             session_id = data.get("result", {}).get("meta", {}).get("agentMeta", {}).get("sessionId")
             if session_id:
                 return session_id
-            # Local 模式: meta.agentMeta.sessionId
+            # Local mode: meta.agentMeta.sessionId
             session_id = data.get("meta", {}).get("agentMeta", {}).get("sessionId")
             if session_id:
                 return session_id
 
-            # 如果都没找到，打印调试信息
-            print(f"⚠ 无法从响应中提取 sessionId")
-            print(f"   响应结构: {list(data.keys())}")
+            # If missing, print debug info
+            print(f"⚠ Failed to extract sessionId from response")
+            print(f"   Response keys: {list(data.keys())}")
 
         except json.JSONDecodeError as e:
-            print(f"⚠ JSON 解析失败: {e}")
-            print(f"   响应内容: {result.stdout[:200]}")
+            print(f"⚠ JSON parse failed: {e}")
+            print(f"   Response content: {result.stdout[:200]}")
 
         return None
     except subprocess.TimeoutExpired:
-        print(f"⚠ 发送消息超时（{timeout}秒）")
+        print(f"⚠ Send message timed out（{timeout}）")
         return None
     except Exception as e:
-        print(f"⚠ 发送消息失败: {e}")
+        print(f"⚠ Send message failed: {e}")
         return None
 
 
 def wait_for_completion(session_id: str, timeout_s: int, log_dir: str) -> bool:
-    """等待 agent 完成"""
+    """Wait for agent completion"""
     start_time = time.time()
     last_line_count = 0
     stable_count = 0
@@ -177,14 +200,14 @@ def wait_for_completion(session_id: str, timeout_s: int, log_dir: str) -> bool:
 
             lines = result.stdout.strip().splitlines()
 
-            # 检查完成标记
+            # Check completion marker
             for line in lines:
                 from .tracer import parse_line
                 entry = parse_line(line)
                 if entry and _is_turn_end(entry):
                     return True
 
-            # 检查稳定
+            # Check stability
             if len(lines) == last_line_count:
                 stable_count += 1
                 if stable_count >= 3:
@@ -202,69 +225,236 @@ def wait_for_completion(session_id: str, timeout_s: int, log_dir: str) -> bool:
     return False
 
 
-def check_assertions(case: EvalCase, events: list, final_output: str) -> tuple[bool, list[str]]:
-    """检查断言"""
-    failures = []
+def _lower(s: str) -> str:
+    return s.lower()
+
+
+def _get_exec_commands(events: list[Event]) -> list[str]:
+    commands = []
+    for e in events:
+        if e.kind != "tool_end" or e.tool != "exec":
+            continue
+        if isinstance(e.input, dict):
+            cmd = e.input.get("command", "")
+            if isinstance(cmd, str) and cmd:
+                commands.append(cmd)
+    return commands
+
+
+def _check_commands(exec_commands: list[str], expect_commands: list[str]) -> dict:
+    details = {}
+    for pattern in expect_commands:
+        if not isinstance(pattern, str):
+            continue
+        pat = pattern.lower()
+        matched_in = [cmd for cmd in exec_commands if pat in cmd.lower()]
+        details[pattern] = {
+            "passed": len(matched_in) > 0,
+            "matched_in": matched_in[:3],
+        }
+    return {
+        "passed": all(v["passed"] for v in details.values()) if details else True,
+        "details": details,
+        "actual_commands": exec_commands,
+    }
+
+
+def _check_forbidden_commands(exec_commands: list[str], forbidden_commands: list[str]) -> dict:
+    violations = {}
+    for pattern in forbidden_commands:
+        if not isinstance(pattern, str):
+            continue
+        pat = pattern.lower()
+        matched = [cmd for cmd in exec_commands if pat in cmd.lower()]
+        if matched:
+            violations[pattern] = matched[:3]
+    return {
+        "passed": len(violations) == 0,
+        "violations": violations,
+    }
+
+
+def _check_commands_ordered(exec_commands: list[str], expect_ordered: list[str]) -> dict:
+    idx = 0
+    for cmd in exec_commands:
+        if idx < len(expect_ordered) and expect_ordered[idx].lower() in cmd.lower():
+            idx += 1
+    return {
+        "passed": idx == len(expect_ordered),
+        "matched_count": idx,
+        "expected_count": len(expect_ordered),
+        "expected": expect_ordered,
+        "actual_commands": exec_commands,
+    }
+
+
+def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> tuple[bool, list[str], dict]:
+    """Check assertions"""
+    failures: list[str] = []
+    checks: dict = {}
     tool_names = [e.tool for e in events if e.kind == "tool_end"]
 
     # expect_tools
     if case.expect_tools:
         missing = set(case.expect_tools) - set(tool_names)
         if missing:
-            failures.append(f"缺少必要工具调用: {', '.join(missing)}（实际: {tool_names}）")
+            failures.append(f"Missing required tool calls: {', '.join(missing)}（: {tool_names}）")
+        checks["tool_called"] = {
+            "passed": len(missing) == 0,
+            "expected": case.expect_tools,
+            "actual": tool_names,
+            "missing": sorted(missing),
+        }
 
     # expect_tools_ordered
     if case.expect_tools_ordered:
         if case.expect_tools_ordered_strict:
-            # EXACT 模式：必须完全一致
+            # EXACT ：
             if tool_names != case.expect_tools_ordered:
-                failures.append(f"工具调用顺序不符（strict模式）: 期望 {case.expect_tools_ordered}，实际 {tool_names}")
+                failures.append(f"Tool order mismatch (strict):  {case.expect_tools_ordered}， {tool_names}")
         else:
-            # IN_ORDER 模式：期望工具必须按顺序出现，但允许中间穿插其他工具
+            # IN_ORDER ：，
             it = iter(tool_names)
             if not all(tool in it for tool in case.expect_tools_ordered):
-                failures.append(f"工具调用顺序不符: 期望 {case.expect_tools_ordered}，实际 {tool_names}")
+                failures.append(f"Tool order mismatch:  {case.expect_tools_ordered}， {tool_names}")
+        checks["tool_ordered"] = {
+            "passed": not any("Tool order mismatch" in f for f in failures),
+            "expected": case.expect_tools_ordered,
+            "actual": tool_names,
+            "strict": case.expect_tools_ordered_strict,
+        }
 
     # forbidden_tools
     if case.forbidden_tools:
         forbidden_used = set(case.forbidden_tools) & set(tool_names)
         if forbidden_used:
-            failures.append(f"调用了禁止的工具: {', '.join(forbidden_used)}")
+            failures.append(f"Forbidden tool was called: {', '.join(forbidden_used)}")
+        checks["forbidden_tools"] = {
+            "passed": len(forbidden_used) == 0,
+            "expected": case.forbidden_tools,
+            "violations": sorted(forbidden_used),
+        }
+
+    exec_commands = _get_exec_commands(events)
+
+    if case.expect_commands:
+        cmd_check = _check_commands(exec_commands, case.expect_commands)
+        checks["commands"] = cmd_check
+        if not cmd_check["passed"]:
+            missing = [k for k, v in cmd_check["details"].items() if not v["passed"]]
+            failures.append(f"Missing expected command keywords: {', '.join(missing)}")
+
+    if case.forbidden_commands:
+        forbid_check = _check_forbidden_commands(exec_commands, case.forbidden_commands)
+        checks["forbidden_commands"] = forbid_check
+        if not forbid_check["passed"]:
+            failures.append(f"Forbidden command keywords found: {', '.join(forbid_check['violations'].keys())}")
+
+    if case.expect_commands_ordered:
+        order_check = _check_commands_ordered(exec_commands, case.expect_commands_ordered)
+        checks["commands_ordered"] = order_check
+        if not order_check["passed"]:
+            failures.append(
+                f"Command order mismatch:  {case.expect_commands_ordered}， {order_check['matched_count']}/{order_check['expected_count']}"
+            )
 
     # expect_output_contains
     if case.expect_output_contains:
-        missing_keywords = [kw for kw in case.expect_output_contains if kw not in final_output]
+        output_lower = final_output.lower()
+        missing_keywords = [kw for kw in case.expect_output_contains if kw.lower() not in output_lower]
         if missing_keywords:
-            failures.append(f"输出缺少关键词: {', '.join(missing_keywords)}")
+            failures.append(f"Output missing expected keywords: {', '.join(missing_keywords)}")
+        checks["output_contains"] = {
+            "passed": len(missing_keywords) == 0,
+            "expected": case.expect_output_contains,
+            "missing": missing_keywords,
+        }
 
     # expect_tool_args
     if case.expect_tool_args:
+        tool_arg_details = {}
+        tool_arg_passed = True
         for tool_name, expected_args in case.expect_tool_args.items():
-            # 找到该工具的实际调用 event
+            #  event
             actual_events = [e for e in events if e.kind == "tool_end" and e.tool == tool_name]
             if not actual_events:
-                failures.append(f"工具未被调用，无法验证参数: {tool_name}")
+                failures.append(f"Tool not called; cannot validate arguments: {tool_name}")
+                tool_arg_details[tool_name] = {"passed": False, "missing_tool": True}
+                tool_arg_passed = False
                 continue
-            # 取最后一次调用
-            actual_args = actual_events[-1].input
+            tool_arg_details[tool_name] = {"passed": True, "args": {}}
             for key, expected_val in expected_args.items():
-                actual_val = actual_args.get(key)
-                if str(actual_val) != str(expected_val):
+                matched = False
+                for ev in actual_events:
+                    actual_val = ev.input.get(key) if isinstance(ev.input, dict) else None
+                    if isinstance(expected_val, str):
+                        if expected_val.lower() in str(actual_val).lower():
+                            matched = True
+                            break
+                    else:
+                        if str(actual_val) == str(expected_val):
+                            matched = True
+                            break
+                tool_arg_details[tool_name]["args"][key] = {
+                    "expected": expected_val,
+                    "matched": matched,
+                }
+                if not matched:
                     failures.append(
-                        f"工具参数不符: {tool_name}.{key} 期望={expected_val} 实际={actual_val}"
+                        f"Tool argument mismatch: {tool_name}.{key} ={expected_val}"
                     )
+                    tool_arg_passed = False
+            if not tool_arg_details[tool_name]["args"]:
+                tool_arg_details[tool_name]["passed"] = True
+            else:
+                tool_arg_details[tool_name]["passed"] = all(
+                    v["matched"] for v in tool_arg_details[tool_name]["args"].values()
+                )
+        checks["tool_args"] = {
+            "passed": tool_arg_passed,
+            "details": tool_arg_details,
+        }
 
-    return len(failures) == 0, failures
+    return len(failures) == 0, failures, checks
+
+
+def _parse_event_ts(ts: str) -> datetime | None:
+    if not ts or not isinstance(ts, str):
+        return None
+    try:
+        if ts.endswith("Z"):
+            ts = ts[:-1] + "+00:00"
+        return datetime.fromisoformat(ts)
+    except Exception:
+        return None
+
+
+def _filter_events_by_time(events: list[Event], start_dt: datetime, end_dt: datetime) -> list[Event]:
+    if not start_dt or not end_dt:
+        return events
+    filtered: list[Event] = []
+    for ev in events:
+        ev_dt = _parse_event_ts(ev.ts)
+        if ev_dt is None:
+            filtered.append(ev)
+            continue
+        if start_dt <= ev_dt <= end_dt:
+            filtered.append(ev)
+    return filtered
 
 
 def run_eval_case(case: EvalCase, dry_run: bool, log_dir: str, use_local: bool = False, session_id_override: str = None) -> EvalResult:
-    """运行单个测试用例"""
+    """Run a single test case"""
     start_time = time.time()
-    session_id = session_id_override  # 使用提供的 session_id（用于 dry-run 测试）
+    session_id = session_id_override  # Use provided session_id for dry-run testing
     events = []
     final_output = ""
 
+    start_dt = None
+    end_dt = None
+
     if not dry_run:
+        start_dt = datetime.now(timezone.utc)
         session_id = send_message(case.agent, case.message, use_local)
         if not session_id:
             return EvalResult(
@@ -273,26 +463,33 @@ def run_eval_case(case: EvalCase, dry_run: bool, log_dir: str, use_local: bool =
                 events=[],
                 final_output="",
                 duration_s=time.time() - start_time,
-                failures=["无法发送消息或获取 session_id"],
+                failures=["Failed to send message or get session_id"],
+                checks={},
                 timestamp=datetime.now().isoformat()
             )
 
         wait_for_completion(session_id, case.timeout_s, log_dir)
+        end_dt = datetime.now(timezone.utc)
 
-    # 提取事件
+    # Extract events (session file first, then state)
     if session_id:
-        from .tracer import read_logs_for_session, extract_events
-        entries = read_logs_for_session(Path(log_dir), session_id)
-        events = extract_events(entries, session_id)
+        events = session_reader.build_events_from_session(session_id)
+        if not events:
+            state = store.state_load(session_id)
+            events = _events_from_state(state, session_id)
 
-    # 获取最终输出
+    # Filter events to case time window to avoid leakage
+    if start_dt and end_dt:
+        events = _filter_events_by_time(events, start_dt, end_dt)
+
+    # Get final output
     for event in reversed(events):
         if event.kind == "llm_response":
             final_output = event.output
             break
 
-    # 检查断言
-    passed, failures = check_assertions(case, events, final_output)
+    # Check assertions
+    passed, failures, checks = check_assertions(case, events, final_output)
 
     return EvalResult(
         case=case,
@@ -301,13 +498,46 @@ def run_eval_case(case: EvalCase, dry_run: bool, log_dir: str, use_local: bool =
         final_output=final_output,
         duration_s=time.time() - start_time,
         failures=failures,
+        checks=checks,
         session_id=session_id,
         timestamp=datetime.now().isoformat()
     )
 
 
+def _events_from_state(state: dict, session_id: str) -> list[Event]:
+    """Build Event list from state file (compatible)"""
+    events: list[Event] = []
+    if not isinstance(state, dict):
+        return events
+
+    raw_events = state.get("events") or state.get("trace") or []
+    if not isinstance(raw_events, list):
+        return events
+
+    for item in raw_events:
+        if not isinstance(item, dict):
+            continue
+        kind = item.get("kind") or item.get("type")
+        if kind == "tool":
+            kind = "tool_end"
+        if kind not in ("tool_start", "tool_end", "llm_response"):
+            continue
+        events.append(Event(
+            kind=kind,
+            tool=item.get("tool", ""),
+            input=item.get("input", {}) or item.get("arguments", {}) or {},
+            output=item.get("output", "") or item.get("out_text", "") or "",
+            duration_ms=item.get("duration_ms") or item.get("durationMs"),
+            ts=item.get("ts") or item.get("timestamp", ""),
+            session_id=session_id,
+            raw=item
+        ))
+
+    return events
+
+
 def generate_html_report(results: list[EvalResult], output_file: str):
-    """生成 HTML 报告"""
+    """Generate HTML report"""
     passed_count = sum(1 for r in results if r.passed)
     total_count = len(results)
     pass_rate = (passed_count / total_count * 100) if total_count > 0 else 0
@@ -333,10 +563,10 @@ def generate_html_report(results: list[EvalResult], output_file: str):
 <body>
     <h1>⚡ OpenClaw EDD Report</h1>
     <div class="summary">
-        <strong>总计:</strong> {total_count} 用例<br>
-        <strong>通过:</strong> <span class="pass">{passed_count}</span><br>
-        <strong>失败:</strong> <span class="fail">{total_count - passed_count}</span><br>
-        <strong>通过率:</strong> {pass_rate:.1f}%
+        <strong>Total:</strong> {total_count} cases<br>
+        <strong>Passed:</strong> <span class="pass">{passed_count}</span><br>
+        <strong>Failed:</strong> <span class="fail">{total_count - passed_count}</span><br>
+        <strong>Passed:</strong> {pass_rate:.1f}%
     </div>
 """
 
@@ -348,13 +578,13 @@ def generate_html_report(results: list[EvalResult], output_file: str):
         html += f"""
     <div class="case">
         <h3>{result.case.id} <span class="badge {badge_class}">{status_text}</span></h3>
-        <p><strong>消息:</strong> {result.case.message}</p>
-        <p><strong>耗时:</strong> {result.duration_s:.2f}s</p>
-        <p><strong>工具链:</strong> {', '.join(result.tool_names) if result.tool_names else '(无)'}</p>
+        <p><strong>Message:</strong> {result.case.message}</p>
+        <p><strong>Duration:</strong> {result.duration_s:.2f}s</p>
+        <p><strong>Tool chain:</strong> {', '.join(result.tool_names) if result.tool_names else '()'}</p>
 """
 
         if result.failures:
-            html += "        <p><strong class='fail'>失败原因:</strong></p><ul>"
+            html += "        <p><strong class='fail'>Failed:</strong></p><ul>"
             for failure in result.failures:
                 html += f"<li>{failure}</li>"
             html += "</ul>"
@@ -363,7 +593,7 @@ def generate_html_report(results: list[EvalResult], output_file: str):
             output_preview = result.final_output[:200]
             if len(result.final_output) > 200:
                 output_preview += "..."
-            html += f"        <p><strong>输出:</strong></p><pre>{output_preview}</pre>"
+            html += f"        <p><strong>Output:</strong></p><pre>{output_preview}</pre>"
 
         html += "    </div>"
 
@@ -377,41 +607,73 @@ def generate_html_report(results: list[EvalResult], output_file: str):
 
 
 def cmd_run(args):
-    """Run 命令入口"""
-    # 加载用例
+    """Run command entry"""
+    # Load cases
+    if getattr(args, "quickstart", False) and args.cases:
+        print("✗ --quickstart cannot be used with --cases")
+        sys.exit(1)
+    if getattr(args, "quickstart", False) and args.case:
+        print("✗ --quickstart cannot be used with --case")
+        sys.exit(1)
+
     if args.case:
         cases = [EvalCase(
             id="cli_case",
             message=args.case,
             expect_tools=args.expect_tools or [],
+            expect_commands=getattr(args, "expect_commands", None) or [],
+            expect_commands_ordered=getattr(args, "expect_commands_ordered", None) or [],
             forbidden_tools=args.forbidden_tools or [],
+            forbidden_commands=getattr(args, "forbidden_commands", None) or [],
             agent=args.agent
         )]
+    elif getattr(args, "quickstart", False):
+        from importlib import resources
+        quickstart_ref = resources.files("openclaw_edd").joinpath("quickstart_cases.json")
+        with resources.as_file(quickstart_ref) as quickstart_path:
+            cases = load_cases(str(quickstart_path))
     else:
         cases = load_cases(args.cases)
 
-    # 过滤 tags
+    #  tags
     if args.tags:
         tag_set = set(args.tags)
         cases = [c for c in cases if tag_set & set(c.tags)]
 
     if not cases:
-        print("✗ 没有要运行的用例")
+        print("✗ No cases to run")
         sys.exit(1)
 
-    print(f"⚡ OpenClaw Eval  —  {len(cases)} 用例\n")
+    print(f"⚡ OpenClaw Eval  —  {len(cases)} cases\n")
+
+    validation_only = args.dry_run and not getattr(args, 'session', None)
+    if validation_only:
+        print("ℹ Dry-run  session，cases，Message\n")
 
     results = []
     for case in cases:
         print(f"→ {case.id}: {case.message}")
 
-        result = run_eval_case(
-            case,
-            args.dry_run,
-            args.log_dir,
-            getattr(args, 'local', False),
-            getattr(args, 'session', None)
-        )
+        if validation_only:
+            result = EvalResult(
+                case=case,
+                passed=True,
+                events=[],
+                final_output="",
+                duration_s=0.0,
+                failures=[],
+                checks={},
+                session_id=None,
+                timestamp=datetime.now().isoformat()
+            )
+        else:
+            result = run_eval_case(
+                case,
+                args.dry_run,
+                args.log_dir,
+                getattr(args, 'local', False),
+                getattr(args, 'session', None)
+            )
         results.append(result)
 
         if result.passed:
@@ -419,44 +681,44 @@ def cmd_run(args):
         else:
             print(f"  [✗ FAIL] {result.duration_s:.1f}s")
 
-        # 显示工具链
+        # Tool chain
         if result.tool_names:
-            print(f"  工具链: {', '.join(result.tool_names)}")
+            print(f"  Tool chain: {', '.join(result.tool_names)}")
         else:
-            print(f"  工具链: (无)")
+            print(f"  Tool chain: ()")
 
-        # 显示详细 trace（如果启用）
+        #  trace（）
         if getattr(args, 'show_trace', False) and result.events:
-            print(f"  \n  📋 详细 Trace:")
+            print(f"  \n  📋 Detailed trace:")
             for i, event in enumerate(result.events, 1):
                 if event.kind == "tool_start":
-                    print(f"    {i}. 🔧 {event.tool} 开始")
+                    print(f"    {i}. 🔧 {event.tool} start")
                     if event.input:
                         input_str = str(event.input)[:100]
                         if len(str(event.input)) > 100:
                             input_str += "..."
-                        print(f"       输入: {input_str}")
+                        print(f"       input: {input_str}")
                 elif event.kind == "tool_end":
                     duration = f" ({event.duration_ms}ms)" if event.duration_ms else ""
-                    print(f"    {i}. ✓ {event.tool} 完成{duration}")
+                    print(f"    {i}. ✓ {event.tool} complete{duration}")
                     if event.output:
                         output_str = str(event.output)[:100]
                         if len(str(event.output)) > 100:
                             output_str += "..."
-                        print(f"       输出: {output_str}")
+                        print(f"       Output: {output_str}")
                 elif event.kind == "llm_response":
                     output_str = event.output[:100]
                     if len(event.output) > 100:
                         output_str += "..."
-                    print(f"    {i}. 💬 LLM 响应: {output_str}")
+                    print(f"    {i}. 💬 LLM response: {output_str}")
             print()
 
-        # 显示最终输出（如果没有启用 trace）
+        # Output（ trace）
         if not getattr(args, 'show_trace', False) and result.final_output:
             output_preview = result.final_output[:80]
             if len(result.final_output) > 80:
                 output_preview += "..."
-            print(f"  输出: {output_preview}")
+            print(f"  Output: {output_preview}")
 
         if result.failures:
             for failure in result.failures:
@@ -464,13 +726,13 @@ def cmd_run(args):
 
         print()
 
-    # 汇总
+    # Summary
     passed_count = sum(1 for r in results if r.passed)
     total_count = len(results)
     pass_rate = (passed_count / total_count * 100) if total_count > 0 else 0
     avg_duration = sum(r.duration_s for r in results) / total_count if total_count > 0 else 0
 
-    # 按 eval_type 分组统计
+    # Group stats by eval_type
     regression_results = [r for r in results if r.case.eval_type == "regression"]
     capability_results = [r for r in results if r.case.eval_type == "capability"]
 
@@ -480,11 +742,11 @@ def cmd_run(args):
         reg_passed = sum(1 for r in regression_results if r.passed)
         reg_total = len(regression_results)
         reg_rate = (reg_passed / reg_total * 100) if reg_total > 0 else 0
-        print(f"📊 Regression Eval（防退步）")
+        print(f"📊 Regression Eval（Regression）")
         print("─" * 60)
-        print(f"通过: {reg_passed}/{reg_total}  ({reg_rate:.0f}%)")
+        print(f"Passed: {reg_passed}/{reg_total}  ({reg_rate:.0f}%)")
         if reg_rate < 100:
-            print("  ⚠ 低于 100% 需要关注")
+            print("  ⚠ Below 100% needs attention")
         failed_reg = [r for r in regression_results if not r.passed]
         if failed_reg:
             print(f"FAIL: {', '.join(r.case.id for r in failed_reg)}")
@@ -494,58 +756,58 @@ def cmd_run(args):
         cap_passed = sum(1 for r in capability_results if r.passed)
         cap_total = len(capability_results)
         cap_rate = (cap_passed / cap_total * 100) if cap_total > 0 else 0
-        print(f"📈 Capability Eval（能力爬坡）")
+        print(f"📈 Capability Eval（Capability）")
         print("─" * 60)
-        print(f"通过: {cap_passed}/{cap_total}  ({cap_rate:.0f}%)")
-        print("  ℹ 正常，这是爬坡指标")
+        print(f"Passed: {cap_passed}/{cap_total}  ({cap_rate:.0f}%)")
+        print("  ℹ Normal; this is a climb metric")
         passed_cap = [r for r in capability_results if r.passed]
         if passed_cap:
             print(f"PASS: {', '.join(r.case.id for r in passed_cap[:5])}")
             if len(passed_cap) > 5:
-                print(f"      ... 还有 {len(passed_cap) - 5} 个")
+                print(f"      ...  {len(passed_cap) - 5} ")
         print()
 
     print("─" * 60)
-    print(f"评测完成: {passed_count}/{total_count} 通过 ({pass_rate:.0f}%)")
+    print(f"complete: {passed_count}/{total_count} Passed ({pass_rate:.0f}%)")
 
     failed_cases = [r for r in results if not r.passed]
     if failed_cases:
-        print(f"失败 {len(failed_cases)} 项:")
+        print(f"Failed {len(failed_cases)} :")
         for r in failed_cases:
-            print(f"  - {r.case.id}: {r.failures[0] if r.failures else '未知错误'}")
+            print(f"  - {r.case.id}: {r.failures[0] if r.failures else 'Unknown error'}")
 
-    print(f"平均耗时: {avg_duration:.1f}s")
+    print(f"Duration: {avg_duration:.1f}s")
 
-    # Baseline 对比
+    # Baseline comparison
     if getattr(args, 'baseline', None):
         baseline_path = Path(args.baseline)
         if baseline_path.exists():
             print("\n" + "─" * 60)
-            print("📊 Baseline 对比")
+            print("📊 Baseline comparison")
             print("─" * 60)
 
             try:
                 with open(baseline_path, 'r', encoding='utf-8') as f:
                     baseline_results = json.load(f)
 
-                # 计算 baseline 指标
+                #  baseline 
                 baseline_passed = sum(1 for r in baseline_results if r.get("passed", False))
                 baseline_total = len(baseline_results)
                 baseline_rate = (baseline_passed / baseline_total * 100) if baseline_total > 0 else 0
                 baseline_avg = sum(r.get("duration_s", 0) for r in baseline_results) / baseline_total if baseline_total > 0 else 0
 
-                # 对比
+                # 
                 rate_delta = pass_rate - baseline_rate
                 time_delta = avg_duration - baseline_avg
 
                 print(f"Pass rate:  {baseline_rate:.0f}% → {pass_rate:.0f}%  ({rate_delta:+.0f}%)")
-                print(f"平均耗时:   {baseline_avg:.1f}s → {avg_duration:.1f}s  ({time_delta:+.1f}s)")
+                print(f"Duration:   {baseline_avg:.1f}s → {avg_duration:.1f}s  ({time_delta:+.1f}s)")
 
-                # 按 case 对比
+                #  case 
                 baseline_map = {r["case"]["id"]: r for r in baseline_results}
                 current_map = {r.case.id: r for r in results}
 
-                print("\n详细变化:")
+                print("\nDetailed changes:")
                 for case_id in set(baseline_map.keys()) | set(current_map.keys()):
                     baseline = baseline_map.get(case_id)
                     current = current_map.get(case_id)
@@ -562,97 +824,97 @@ def cmd_run(args):
                             symbol = "✓" if current_status == "PASS" else "✗"
                             print(f"  {symbol} {case_id}  {baseline_status} → {current_status}")
 
-                            # 显示工具链变化
+                            # Tool chain
                             baseline_tools = baseline.get("tool_names", [])
                             current_tools = [e.tool for e in current.events if e.kind == "tool_end"]
                             if baseline_tools != current_tools:
-                                print(f"     工具链: {baseline_tools} → {current_tools}")
+                                print(f"     Tool chain: {baseline_tools} → {current_tools}")
 
             except Exception as e:
-                print(f"⚠ 加载 baseline 失败: {e}")
+                print(f"⚠  baseline Failed: {e}")
         else:
-            print(f"\n⚠ Baseline 文件不存在: {args.baseline}")
+            print(f"\n⚠ Baseline file not found: {args.baseline}")
 
-    # 输出报告
+    # Output
     if args.output_json:
         with open(args.output_json, 'w', encoding='utf-8') as f:
             json.dump([asdict(r) for r in results], f, indent=2, ensure_ascii=False)
-        print(f"\n✓ JSON 报告已保存: {args.output_json}")
+        print(f"\n✓ JSON report saved: {args.output_json}")
 
     if args.output_html:
         generate_html_report(results, args.output_html)
-        print(f"✓ HTML 报告已保存: {args.output_html}")
+        print(f"✓ HTML report saved: {args.output_html}")
 
-    # CI 集成
+    if getattr(args, "summary_line", False):
+        status = "PASS" if passed_count == total_count else "FAIL"
+        print(f"{status} {passed_count}/{total_count} ({pass_rate:.1f}%)")
+
+    # CI integration
     if failed_cases:
         sys.exit(1)
 
 
 def cmd_gen_cases(args):
-    """Gen-cases 命令入口"""
-    template = """# OpenClaw EDD 用例集
+    """gen-cases command entry"""
+    template = """# OpenClaw EDD cases
 cases:
   - id: example_weather
-    message: "今天上海天气怎么样"
-    eval_type: regression          # "regression" (防退步) | "capability" (能力爬坡)，默认 regression
+    message: "What's the weather in Shanghai today?"
+    eval_type: regression          # "regression" | "capability"
     expect_tools:
-      - get_weather
+      - exec
+    expect_commands:
+      - "open-meteo"
     expect_output_contains:
-      - "上海"
-    agent: openclaw_agent
+      - "Shanghai"
     timeout_s: 30
     tags: [smoke, weather]
-    description: "天气查询基础验证"
+    description: "Weather query basic check"
 
   - id: example_forbidden
-    message: "你好"
+    message: "Hello"
     eval_type: regression
     forbidden_tools:
-      - query_db
-      - execute_sql
+      - exec
     tags: [smoke]
-    description: "闲聊不应调用工具"
+    description: "Chat should not call tools"
 
   - id: example_ordered
-    message: "查询数据库并分析结果"
+    message: "List files then count them"
     eval_type: regression
     expect_tools_ordered:
-      - query_db
-      - analyze_data
-    # expect_tools_ordered_strict: false  # 默认 false（IN_ORDER模式）：允许中间有其他工具调用
-    #                                     # 设为 true（EXACT模式）：实际工具序列必须和期望完全一致
+      - exec
+    # expect_tools_ordered_strict: false  # False=IN_ORDER, True=EXACT
     tags: [integration]
-    description: "工具调用顺序验证"
+    description: "Tool call order check"
 
   - id: example_tool_args
-    message: "MySQL 最近一小时有慢查询吗"
+    message: "Any slow queries in MySQL in the last hour?"
     eval_type: regression
     expect_tools:
-      - query_metrics
-    expect_tool_args:              # 工具参数断言（White-box 评测）
-      query_metrics:
-        time_range: "1h"           # 精确匹配：实际调用必须包含此参数且值相等
-        metric: "p99_latency"      # 未指定的参数不检查
+      - exec
+    expect_tool_args:              # Tool argument assertions (white-box)
+      exec:
+        command: "p99_latency"     # String values use substring match
     tags: [mysql, sre]
-    description: "MySQL 慢查询排查（带参数验证）"
+    description: "MySQL slow query check (with args)"
 
   - id: example_capability
-    message: "预测 MySQL 未来一周的存储增长"
-    eval_type: capability          # 能力爬坡用例，通过率从低开始
+    message: "Forecast MySQL storage growth for next week"
+    eval_type: capability          # Capability cases start low
     expect_tools:
-      - query_metrics
-      - forecast
+      - exec
     tags: [mysql, advanced]
-    description: "MySQL 容量预测（新能力）"
+    description: "MySQL capacity forecast (new capability)"
 """
 
     output_file = args.output or "cases.yaml"
 
     if Path(output_file).exists() and not args.force:
-        print(f"✗ 文件已存在: {output_file}（使用 --force 覆盖）")
+        print(f"✗ File already exists: {output_file}（ --force ）")
         sys.exit(1)
 
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(template)
 
-    print(f"✓ 用例模板已生成: {output_file}")
+    print(f"✓ cases: {output_file}")

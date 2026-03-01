@@ -1,0 +1,9 @@
+cases:
+  - id: sample_case
+    message: "List files in the current directory"
+    eval_type: regression
+    expect_tools:
+      - exec
+    expect_commands:
+      - "ls"
+    timeout_s: 30

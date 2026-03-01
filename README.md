@@ -1,10 +1,14 @@
 # openclaw-edd
 
-**Evaluation-Driven Development toolkit for OpenClaw agents**
+[![CI](https://github.com/Belyenochi/openclaw-edd/actions/workflows/ci.yml/badge.svg)](https://github.com/Belyenochi/openclaw-edd/actions)
+[![PyPI version](https://badge.fury.io/py/openclaw-edd.svg)](https://pypi.org/project/openclaw-edd/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Evaluation-Driven Development toolkit for OpenClaw agents.
+Zero-friction quality gates — log files as the single source of truth.
 
 [中文文档](README_CN.md)
-
-Zero-friction EDD toolkit that doesn't intrude into OpenClaw core, with log files as the single source of truth.
 
 ## Features
 
@@ -16,27 +20,23 @@ Zero-friction EDD toolkit that doesn't intrude into OpenClaw core, with log file
 ## Quick Start
 
 ```bash
-# Install
 pip install openclaw-edd
 
-# Real-time monitoring
+# Step 0: See what tools your agent actually uses
 openclaw-edd watch
 
-# Standard EDD loop
-openclaw-edd run --cases cases.yaml --output-json report_v1.json
-openclaw-edd edd suggest --report report_v1.json > suggestion.txt
-openclaw-edd edd apply --suggestion-file suggestion.txt
-openclaw-edd run --cases cases.yaml --output-json report_v2.json
-openclaw-edd edd diff --before report_v1.json --after report_v2.json
+# Step 1: Run built-in evaluation (6 test cases)
+openclaw-edd run --quickstart --agent main --summary-line
 
-# Mine golden cases from production logs
-openclaw-edd edd mine --output mined_cases.yaml
-openclaw-edd run --cases mined_cases.yaml --output-json regression.json
-
-# Export golden dataset
-openclaw-edd edd export --output golden.jsonl
-openclaw-edd edd export --format csv --output review.csv
+# Step 2: Full EDD loop
+openclaw-edd run --quickstart --agent main --output-json round1.json
+openclaw-edd edd suggest --report round1.json
+# ... fix your agent ...
+openclaw-edd run --quickstart --agent main --output-json round2.json
+openclaw-edd edd diff --before round1.json --after round2.json
 ```
+
+📖 **[Complete User Guide →](./USER_JOURNEY.md)** — 7-step walkthrough from install to CI integration.
 
 ## Commands
 
@@ -59,103 +59,6 @@ openclaw-edd edd export --format csv --output review.csv
 - **edd judge** - LLM-based scoring for tool selection and output quality
 - **edd export** - Export golden dataset (JSONL/CSV)
 
-## Detailed Usage
-
-### watch - Real-time Monitoring
-
-```bash
-# Basic usage
-openclaw-edd watch
-
-# Filter specific session
-openclaw-edd watch --session <session_id_prefix>
-
-# Read from file start (replay today's history)
-openclaw-edd watch --from-start
-
-# Run in background
-openclaw-edd watch --daemon
-kill $(cat /tmp/openclaw_edd_watch.pid)
-```
-
-### run - Run Evaluation
-
-```bash
-# Use built-in test cases
-openclaw-edd run
-
-# Use custom test cases
-openclaw-edd run --cases cases.yaml
-
-# Filter by tags
-openclaw-edd run --cases cases.yaml --tags smoke,mysql
-
-# Single test case (command line)
-openclaw-edd run --case "What's the weather in Shanghai today" --expect-tools get_weather
-
-# Show detailed tool call trace
-openclaw-edd run --cases cases.yaml --show-trace
-
-# Use --local mode (ensure logs written locally)
-openclaw-edd run --cases cases.yaml --agent main --local
-
-# Output reports
-openclaw-edd run --output-json report.json
-openclaw-edd run --output-html report.html
-
-# Dry run (no messages sent, only parse logs)
-openclaw-edd run --dry-run
-```
-
-### edd suggest - Generate Suggestions
-
-```bash
-openclaw-edd edd suggest --report report.json
-openclaw-edd edd suggest --report report.json --workspace ~/.openclaw/workspace
-openclaw-edd edd suggest --report report.json > suggestion.txt
-```
-
-### edd diff - Compare Changes
-
-```bash
-openclaw-edd edd diff --before report_v1.json --after report_v2.json
-openclaw-edd edd diff --before report_v1.json --after report_v2.json --format json
-```
-
-### edd mine - Mine Test Cases
-
-```bash
-openclaw-edd edd mine
-openclaw-edd edd mine --output mined_cases.yaml
-openclaw-edd edd mine --min-tools 2
-```
-
-### edd judge - LLM Evaluation
-
-```bash
-# Use LLM for intelligent evaluation of test results
-export ANTHROPIC_API_KEY=your_key
-openclaw-edd edd judge --report report.json
-openclaw-edd edd judge --report report.json --output judged_report.json
-openclaw-edd edd judge --report report.json --model claude-opus-4-6
-
-# View detailed documentation
-cat docs/JUDGE_COMMAND.md
-```
-
-### edd export - Export Dataset
-
-```bash
-# Export JSONL
-openclaw-edd edd export --output golden.jsonl
-
-# Merge with run report for more accurate golden_output
-openclaw-edd run --cases cases.yaml --output-json report.json
-openclaw-edd edd export --merge-report report.json --output golden.jsonl
-
-# Export CSV for expert review
-openclaw-edd edd export --format csv --output review.csv
-```
 
 ## Test Case Format
 
@@ -165,24 +68,34 @@ cases:
     message: "Any slow queries in MySQL recently"
     eval_type: regression          # "regression" (prevent regression) | "capability" (capability climb), default regression
     expect_tools:
-      - query_metrics
-      - get_alerts
+      - exec
+    expect_commands:
+      - "check_health"
+      - "prod-01"
+    expect_commands_ordered:
+      - "check_health"
+      - "query_metrics"
+    forbidden_commands:
+      - "rm -rf"
     expect_tools_ordered:
-      - query_metrics
-      - get_alerts
+      - exec
     expect_output_contains:
       - "slow query"
     forbidden_tools:
-      - execute_sql
+      - exec
     expect_tool_args:              # Tool argument assertions (White-box evaluation)
-      query_metrics:
-        time_range: "1h"           # Exact match: actual call must contain this parameter with equal value
-        metric: "p99_latency"      # Unspecified parameters are not checked
+      exec:
+        command: "check_health"    # Substring match for string values
     agent: openclaw_agent
     timeout_s: 30
     tags: [mysql, sre]
     description: "MySQL slow query troubleshooting basic verification"
 ```
+
+Notes:
+- `expect_commands`, `expect_commands_ordered`, and `forbidden_commands` do case-insensitive substring matching on `exec` tool `input.command`.
+- `expect_output_contains` is case-insensitive substring matching.
+- For `expect_tool_args`, string values use case-insensitive substring matching; non-strings use exact match.
 
 ### Eval Type Explanation
 

@@ -1,144 +1,173 @@
-"""
-CLI 入口
+"""CLI entry point for openclaw-edd."""
 
-注册所有子命令，提供统一的命令行接口
-"""
+from __future__ import annotations
 
 import argparse
 import sys
 
-from . import watcher, eval as eval_module, edd
+from . import edd, eval as eval_module, watcher
 
 
-def main():
-    """主入口函数"""
+def main() -> None:
+    """Run the CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="edd",
-        description="OpenClaw EDD toolkit - Evaluation-Driven Development"
+        description="OpenClaw EDD toolkit - Evaluation-Driven Development",
     )
-    
-    # 全局选项
-    parser.add_argument("--verbose", "-v", action="store_true", help="打印调试信息")
-    parser.add_argument("--log-dir", default="/tmp/openclaw", help="日志目录")
-    
-    subparsers = parser.add_subparsers(dest="cmd", required=True, help="子命令")
-    
-    # ========================================================================
-    # watch 命令
-    # ========================================================================
-    watch_parser = subparsers.add_parser("watch", help="实时监听日志")
-    watch_parser.add_argument("--session", help="过滤特定 session")
-    watch_parser.add_argument("--from-start", action="store_true", help="从文件头读")
-    watch_parser.add_argument("--daemon", action="store_true", help="后台运行")
-    watch_parser.add_argument("--pid-file", default="/tmp/openclaw_edd_watch.pid", help="PID 文件")
-    watch_parser.add_argument("--daemon-log", default="/tmp/openclaw_edd_watch.log", help="Daemon 日志")
-    
-    # ========================================================================
-    # trace 命令
-    # ========================================================================
-    trace_parser = subparsers.add_parser("trace", help="回放历史事件链")
+
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug output")
+    parser.add_argument("--log-dir", default="/tmp/openclaw", help="Log directory")
+
+    subparsers = parser.add_subparsers(dest="cmd", required=True, help="Subcommands")
+
+    watch_parser = subparsers.add_parser("watch", help="Stream tool events")
+    watch_parser.add_argument("--session", help="Filter by session ID prefix")
+    watch_parser.add_argument("--from-start", action="store_true", help="Read from file start")
+    watch_parser.add_argument(
+        "--save-artifacts",
+        action="store_true",
+        help="Save tool outputs as artifacts",
+    )
+    watch_parser.add_argument("--daemon", action="store_true", help="Run as daemon")
+    watch_parser.add_argument(
+        "--pid-file", default="/tmp/openclaw_edd_watch.pid", help="PID file"
+    )
+    watch_parser.add_argument(
+        "--daemon-log", default="/tmp/openclaw_edd_watch.log", help="Daemon log file"
+    )
+
+    trace_parser = subparsers.add_parser("trace", help="Replay a session event chain")
     trace_parser.add_argument("--session", required=True, help="Session ID")
-    trace_parser.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
-    
-    # ========================================================================
-    # state 命令
-    # ========================================================================
-    state_parser = subparsers.add_parser("state", help="查看/修改 session 状态")
+    trace_parser.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format"
+    )
+
+    state_parser = subparsers.add_parser("state", help="View or modify session state")
     state_parser.add_argument("--session", required=True, help="Session ID")
-    state_parser.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
-    state_parser.add_argument("--set", action="append", help="设置 key=value")
-    state_parser.add_argument("--delete", action="append", help="删除 key")
-    
-    # ========================================================================
-    # artifacts 命令
-    # ========================================================================
-    artifacts_parser = subparsers.add_parser("artifacts", help="管理 tool 输出文件")
+    state_parser.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format"
+    )
+    state_parser.add_argument("--set", action="append", help="Set key=value")
+    state_parser.add_argument("--delete", action="append", help="Delete key")
+
+    artifacts_parser = subparsers.add_parser("artifacts", help="Manage tool output files")
     artifacts_parser.add_argument("--session", help="Session ID")
-    artifacts_parser.add_argument("--extract", action="store_true", help="从日志提取")
-    artifacts_parser.add_argument("--export", help="导出到指定目录")
-    
-    # ========================================================================
-    # sessions 命令
-    # ========================================================================
-    sessions_parser = subparsers.add_parser("sessions", help="列出/查看历史 session")
-    sessions_parser.add_argument("--limit", type=int, default=20, help="显示数量限制")
-    sessions_parser.add_argument("--show", help="显示单个 session 详情")
-    
-    # ========================================================================
-    # run 命令
-    # ========================================================================
-    run_parser = subparsers.add_parser("run", help="运行 eval 用例集")
-    run_parser.add_argument("--cases", help="用例文件（YAML）")
-    run_parser.add_argument("--tags", nargs="+", help="过滤 tags")
-    run_parser.add_argument("--case", help="单个用例消息")
-    run_parser.add_argument("--expect-tools", nargs="+", help="期望工具列表")
-    run_parser.add_argument("--forbidden-tools", nargs="+", help="禁止工具列表")
-    run_parser.add_argument("--agent", default="main", help="Agent 名称")
-    run_parser.add_argument("--local", action="store_true", help="使用 --local 模式运行（日志会写入本地）")
-    run_parser.add_argument("--dry-run", action="store_true", help="不发消息，只解析日志")
-    run_parser.add_argument("--session", help="Dry-run 模式下指定 session_id")
-    run_parser.add_argument("--show-trace", action="store_true", help="显示详细的工具调用 trace")
-    run_parser.add_argument("--baseline", help="基线报告文件（JSON），用于对比")
-    run_parser.add_argument("--output-json", help="保存 JSON 报告")
-    run_parser.add_argument("--output-html", help="保存 HTML 报告")
-    
-    # ========================================================================
-    # gen-cases 命令
-    # ========================================================================
-    gen_cases_parser = subparsers.add_parser("gen-cases", help="生成用例模板")
-    gen_cases_parser.add_argument("--output", help="输出文件")
-    gen_cases_parser.add_argument("--force", action="store_true", help="覆盖已存在的文件")
+    artifacts_parser.add_argument("--extract", action="store_true", help="Extract from logs")
+    artifacts_parser.add_argument("--export", help="Export to directory")
 
-    # ========================================================================
-    # edd 命令（包含子子命令）
-    # ========================================================================
-    edd_parser = subparsers.add_parser("edd", help="EDD 闭环命令")
-    edd_subparsers = edd_parser.add_subparsers(dest="edd_cmd", required=True, help="EDD 子命令")
+    sessions_parser = subparsers.add_parser("sessions", help="List or view sessions")
+    sessions_parser.add_argument("--limit", type=int, default=20, help="Limit count")
+    sessions_parser.add_argument("--show", help="Show a single session")
 
-    # edd suggest
-    suggest_parser = edd_subparsers.add_parser("suggest", help="从失败 cases 生成修改建议")
-    suggest_parser.add_argument("--report", required=True, help="JSON 报告文件")
-    suggest_parser.add_argument("--workspace", default="", help="Workspace 路径")
+    run_parser = subparsers.add_parser("run", help="Run evaluation cases")
+    run_parser.add_argument("--cases", help="Case file (YAML/JSON/JSONL)")
+    run_parser.add_argument("--quickstart", action="store_true", help="Use built-in quickstart cases")
+    run_parser.add_argument("--tags", nargs="+", help="Filter by tags")
+    run_parser.add_argument("--case", help="Single case message")
+    run_parser.add_argument("--expect-tools", nargs="+", help="Expected tool names")
+    run_parser.add_argument(
+        "--expect-commands",
+        nargs="+",
+        help="Expected command keywords (exec.command substrings)",
+    )
+    run_parser.add_argument(
+        "--expect-commands-ordered",
+        nargs="+",
+        help="Expected command keywords in order (exec.command substrings)",
+    )
+    run_parser.add_argument("--forbidden-tools", nargs="+", help="Forbidden tool names")
+    run_parser.add_argument(
+        "--forbidden-commands",
+        nargs="+",
+        help="Forbidden command keywords (exec.command substrings)",
+    )
+    run_parser.add_argument("--agent", default="main", help="Agent name")
+    run_parser.add_argument(
+        "--local", action="store_true", help="Run with --local mode"
+    )
+    run_parser.add_argument(
+        "--dry-run", action="store_true", help="Do not send messages"
+    )
+    run_parser.add_argument("--session", help="Session ID (dry-run)")
+    run_parser.add_argument(
+        "--show-trace", action="store_true", help="Show tool trace"
+    )
+    run_parser.add_argument(
+        "--baseline", help="Baseline report file (JSON) for comparison"
+    )
+    run_parser.add_argument("--output-json", help="Write JSON report")
+    run_parser.add_argument("--output-html", help="Write HTML report")
+    run_parser.add_argument(
+        "--summary-line", action="store_true", help="Print a single summary line"
+    )
 
-    # edd apply
-    apply_parser = edd_subparsers.add_parser("apply", help="应用建议到 workspace")
-    apply_parser.add_argument("--suggestion-file", required=True, help="建议文件")
-    apply_parser.add_argument("--yes", action="store_true", help="跳过确认")
-    apply_parser.add_argument("--workspace", default="", help="Workspace 路径")
+    gen_cases_parser = subparsers.add_parser("gen-cases", help="Generate case template")
+    gen_cases_parser.add_argument("--output", help="Output file")
+    gen_cases_parser.add_argument("--force", action="store_true", help="Overwrite file")
 
-    # edd diff
-    diff_parser = edd_subparsers.add_parser("diff", help="对比两次 run 的变化")
-    diff_parser.add_argument("--before", required=True, help="之前的报告")
-    diff_parser.add_argument("--after", required=True, help="之后的报告")
-    diff_parser.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    edd_parser = subparsers.add_parser("edd", help="EDD loop commands")
+    edd_subparsers = edd_parser.add_subparsers(
+        dest="edd_cmd", required=True, help="EDD subcommands"
+    )
 
-    # edd mine
-    mine_parser = edd_subparsers.add_parser("mine", help="从历史日志挖掘 golden cases")
-    mine_parser.add_argument("--output", default="mined_cases.yaml", help="输出文件")
-    mine_parser.add_argument("--min-tools", type=int, default=1, help="最少工具调用数")
-    mine_parser.add_argument("--log-dir", help="日志目录")
-    mine_parser.add_argument("--workspace", default="", help="Workspace 路径")
+    suggest_parser = edd_subparsers.add_parser(
+        "suggest", help="Generate suggestions from failed cases"
+    )
+    suggest_parser.add_argument("--report", required=True, help="JSON report file")
+    suggest_parser.add_argument("--workspace", default="", help="Workspace path")
 
-    # edd judge
-    judge_parser = edd_subparsers.add_parser("judge", help="用 LLM 对 tool 选择和 output 质量打分")
-    judge_parser.add_argument("--report", required=True, help="JSON 报告文件")
-    judge_parser.add_argument("--output", help="输出打分报告（JSON）")
-    judge_parser.add_argument("--model", default="claude-sonnet-4-6", help="LLM 模型（支持 claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5, gpt-4o, deepseek-chat 等）")
-    judge_parser.add_argument("--provider", default="anthropic", choices=["anthropic", "openai", "deepseek"], help="LLM 提供商")
-    
-    # edd export
-    export_parser = edd_subparsers.add_parser("export", help="导出 golden dataset")
-    export_parser.add_argument("--output", default="golden.jsonl", help="输出文件")
-    export_parser.add_argument("--min-tools", type=int, default=1, help="最少工具调用数")
-    export_parser.add_argument("--log-dir", help="日志目录")
-    export_parser.add_argument("--workspace", default="", help="Workspace 路径")
-    export_parser.add_argument("--merge-report", help="合并 report 的 final_output")
-    export_parser.add_argument("--format", choices=["jsonl", "csv"], default="jsonl", help="输出格式")
-    
-    # 解析参数
+    apply_parser = edd_subparsers.add_parser("apply", help="Apply suggestions")
+    apply_parser.add_argument("--suggestion-file", required=True, help="Suggestion file")
+    apply_parser.add_argument("--yes", action="store_true", help="Skip confirmation")
+    apply_parser.add_argument("--workspace", default="", help="Workspace path")
+
+    diff_parser = edd_subparsers.add_parser("diff", help="Compare two runs")
+    diff_parser.add_argument("--before", required=True, help="Report before")
+    diff_parser.add_argument("--after", required=True, help="Report after")
+    diff_parser.add_argument(
+        "--format", choices=["text", "json"], default="text", help="Output format"
+    )
+
+    mine_parser = edd_subparsers.add_parser(
+        "mine", help="Mine golden cases from logs"
+    )
+    mine_parser.add_argument("--output", default="mined_cases.yaml", help="Output file")
+    mine_parser.add_argument("--min-tools", type=int, default=1, help="Minimum tool calls")
+    mine_parser.add_argument("--log-dir", help="Log directory")
+    mine_parser.add_argument("--workspace", default="", help="Workspace path")
+
+    judge_parser = edd_subparsers.add_parser(
+        "judge", help="LLM-based evaluation of tool selection and output quality"
+    )
+    judge_parser.add_argument("--report", required=True, help="JSON report file")
+    judge_parser.add_argument("--output", help="Output judged report (JSON)")
+    judge_parser.add_argument(
+        "--model",
+        default="claude-sonnet-4-6",
+        help=(
+            "LLM model (claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5, "
+            "gpt-4o, deepseek-chat)"
+        ),
+    )
+    judge_parser.add_argument(
+        "--provider",
+        default="anthropic",
+        choices=["anthropic", "openai", "deepseek"],
+        help="LLM provider",
+    )
+
+    export_parser = edd_subparsers.add_parser("export", help="Export golden dataset")
+    export_parser.add_argument("--output", default="golden.jsonl", help="Output file")
+    export_parser.add_argument("--min-tools", type=int, default=1, help="Minimum tool calls")
+    export_parser.add_argument("--log-dir", help="Log directory")
+    export_parser.add_argument("--workspace", default="", help="Workspace path")
+    export_parser.add_argument("--merge-report", help="Merge report for final output")
+    export_parser.add_argument(
+        "--format", choices=["jsonl", "csv"], default="jsonl", help="Output format"
+    )
+
     args = parser.parse_args()
-    
-    # 分发到对应命令
+
     try:
         if args.cmd == "watch":
             watcher.cmd_watch(args)
@@ -157,262 +186,153 @@ def main():
         elif args.cmd == "edd":
             edd.cmd_edd(args)
     except KeyboardInterrupt:
-        print("\n\n✗ 用户中断")
+        print("\n\n✗ Interrupted by user")
         sys.exit(130)
-    except Exception as e:
+    except Exception as exc:  # pragma: no cover - top-level fallback
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         else:
-            print(f"✗ 错误: {e}")
+            print(f"✗ Error: {exc}")
         sys.exit(1)
 
 
-# ============================================================================
-# 简化的命令实现（trace, state, artifacts, sessions）
-# ============================================================================
+# ---------------------------------------------------------------------------
+# Simplified command implementations (trace, state, artifacts, sessions)
+# ---------------------------------------------------------------------------
 
-def cmd_trace(args):
-    """Trace 命令"""
-    from .tracer import read_logs_for_session, extract_events, LOG_DIR
+def cmd_trace(args: argparse.Namespace) -> None:
+    """Trace a session and print event details."""
     from pathlib import Path
     import json
-    
+
+    from .tracer import read_logs_for_session, extract_events
+
     log_dir = Path(args.log_dir)
     entries = read_logs_for_session(log_dir, args.session)
     events = extract_events(entries, args.session)
-    
+
     if not events:
-        print(f"✗ 未找到 session: {args.session}")
+        print(f"✗ Session not found: {args.session}")
         sys.exit(1)
-    
+
     if args.format == "json":
         output = [e.to_dict() for e in events]
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return
-    
-    print(f"📋 Trace  session={args.session}  ({len(events)} events)")
-    print("─" * 60)
-    
+
+    print(f"Trace session={args.session} ({len(events)} events)")
+    print("-" * 60)
+
     for i, event in enumerate(events, 1):
         if event.kind == "tool_start":
             print(f"#{i:02d} TOOL_START  {event.tool}  {event.ts}")
             if event.input:
                 print(f"     input: {json.dumps(event.input, ensure_ascii=False)}")
-        
         elif event.kind == "tool_end":
             duration_str = f"{event.duration_ms}ms" if event.duration_ms else ""
             print(f"#{i:02d} TOOL_END    {event.tool}  {duration_str}  {event.ts}")
             if event.output:
                 output_str = event.output[:100] + "..." if len(event.output) > 100 else event.output
                 print(f"     output: {output_str}")
-        
         elif event.kind == "llm_response":
-            print(f"#{i:02d} LLM_RESP    {event.ts}")
             output_str = event.output[:200] + "..." if len(event.output) > 200 else event.output
+            print(f"#{i:02d} LLM_RESP    {event.ts}")
             print(f"     {output_str}")
 
 
-def cmd_state(args):
-    """State 命令"""
-    from . import store
-    from .tracer import read_logs_for_session, extract_events, LOG_DIR
-    from pathlib import Path
+def cmd_state(args: argparse.Namespace) -> None:
+    """View or modify session state."""
     import json
-    
-    state = store.state_load(args.session)
-    
-    # 如果不存在，从日志初始化
-    if not state:
-        log_dir = Path(args.log_dir)
-        entries = read_logs_for_session(log_dir, args.session)
-        events = extract_events(entries, args.session)
-        if events:
-            state = {
-                "tool_history": [
-                    {"tool": e.tool, "ts": e.ts, "input": e.input}
-                    for e in events if e.kind == "tool_end"
-                ]
-            }
-    
-    # 修改操作
+    from pathlib import Path
+
+    from .tracer import read_logs_for_session, extract_events
+    from . import store
+
+    log_dir = Path(args.log_dir)
+
     if args.set:
-        for kv in args.set:
-            if '=' not in kv:
-                print(f"✗ 无效格式: {kv}")
-                continue
-            key, value = kv.split('=', 1)
+        for item in args.set:
+            if "=" not in item:
+                print(f"✗ Invalid --set value: {item}")
+                sys.exit(1)
+            key, value = item.split("=", 1)
             store.state_set(args.session, key, value)
-        print("✓ State 已更新")
-    
+        print("✓ State updated")
+
     if args.delete:
+        state = store.state_load(args.session)
         for key in args.delete:
-            state.pop(key, None)
+            if key in state:
+                del state[key]
         store.state_save(args.session, state)
-        print("✓ State 已更新")
-    
-    # 显示
+        print("✓ State updated")
+
+    state = store.state_load(args.session)
+
     if args.format == "json":
         print(json.dumps(state, indent=2, ensure_ascii=False))
-    else:
-        print(f"🗂  State  session={args.session}")
-        print("─" * 60)
-        if state:
-            print(json.dumps(state, indent=2, ensure_ascii=False))
-        else:
-            print("  (空)")
+        return
+
+    print(f"State session={args.session}")
+    print("-" * 60)
+    print(json.dumps(state, indent=2, ensure_ascii=False))
 
 
-def cmd_artifacts(args):
-    """Artifacts 命令"""
-    from . import store
-    from .tracer import read_logs_for_session, extract_events, LOG_DIR
+def cmd_artifacts(args: argparse.Namespace) -> None:
+    """Manage artifact files for a session."""
+    import json
     from pathlib import Path
-    import shutil
-    from collections import defaultdict
-    
+
+    from . import store
+
     if args.extract:
-        if not args.session:
-            print("✗ --extract 需要指定 --session")
-            sys.exit(1)
-        
+        from .tracer import read_logs_for_session, extract_events
+
         log_dir = Path(args.log_dir)
         entries = read_logs_for_session(log_dir, args.session)
         events = extract_events(entries, args.session)
-        
-        count = 0
+
         for event in events:
             if event.kind == "tool_end" and event.output:
-                store.artifacts_save(event.session_id, event.tool, str(event.output))
-                count += 1
-        
-        print(f"✓ 已提取 {count} 个 artifacts")
+                store.artifacts_save(args.session, event.tool, event.output)
+
+        print("✓ Artifacts extracted")
         return
-    
+
+    artifacts = store.artifacts_list(args.session)
     if args.export:
         export_dir = Path(args.export)
         export_dir.mkdir(parents=True, exist_ok=True)
-        
-        files = store.artifacts_list(args.session) if args.session else store.artifacts_list()
-        
-        for src in files:
-            rel_path = src.relative_to(store.ARTIFACTS_DIR)
-            dst = export_dir / rel_path
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-        
-        print(f"✓ 已导出 {len(files)} 个文件到 {export_dir}")
+        for artifact in artifacts:
+            target = export_dir / artifact.name
+            target.write_text(artifact.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"✓ Exported {len(artifacts)} artifacts to {export_dir}")
         return
-    
-    # 列出
-    if args.session:
-        files = store.artifacts_list(args.session)
-        if not files:
-            print(f"✗ 未找到 artifacts: {args.session}")
-            return
-        
-        print(f"📦 Artifacts  session={args.session}")
-        print("─" * 60)
-        for f in files:
-            size = f.stat().st_size
-            print(f"  {f.name}  {size:>8}B")
-    else:
-        sessions = defaultdict(list)
-        for f in store.artifacts_list():
-            session_id = f.parent.name
-            sessions[session_id].append(f)
-        
-        if not sessions:
-            print("✗ 未找到任何 artifacts")
-            return
-        
-        print("📦 Artifacts")
-        print("─" * 60)
-        for session_id in sorted(sessions.keys()):
-            files = sessions[session_id]
-            print(f"  {session_id}  ({len(files)} files)")
-            for f in files:
-                size = f.stat().st_size
-                print(f"    {f.name}  {size:>8}B")
+
+    print(json.dumps([str(p) for p in artifacts], indent=2, ensure_ascii=False))
 
 
-def cmd_sessions(args):
-    """Sessions 命令"""
-    from .tracer import sessions_from_logs, read_logs_for_session, extract_events, LOG_DIR
-    from . import store
+def cmd_sessions(args: argparse.Namespace) -> None:
+    """List or show sessions."""
+    from .tracer import scan_sessions, read_logs_for_session, extract_events
     from pathlib import Path
-    
+    import json
+
     log_dir = Path(args.log_dir)
-    
+
     if args.show:
         entries = read_logs_for_session(log_dir, args.show)
         events = extract_events(entries, args.show)
-        
-        if not events:
-            print(f"✗ 未找到 session: {args.show}")
-            sys.exit(1)
-        
-        state = store.state_load(args.show)
-        artifacts = store.artifacts_list(args.show)
-        
-        print(f"🗂  Session  {args.show}")
-        print("─" * 60)
-        print(f"Events: {len(events)}")
-        print(f"State keys: {len(state)}")
-        print(f"Artifacts: {len(artifacts)}")
-        print()
-        
-        tool_calls = [e.tool for e in events if e.kind == "tool_end"]
-        if tool_calls:
-            print("Tool calls:")
-            for tool in tool_calls:
-                print(f"  - {tool}")
-        
+        if args.format == "json":
+            print(json.dumps([e.to_dict() for e in events], indent=2, ensure_ascii=False))
+        else:
+            print(f"Session {args.show} ({len(events)} events)")
         return
-    
-    # 列出所有
-    sessions = sessions_from_logs(log_dir)
-    
-    if not sessions:
-        print("✗ 未找到任何 session")
-        return
-    
-    # 检查 state/artifacts
-    has_state = set()
-    has_artifacts = set()
-    for s in sessions:
-        sid = s["session_id"]
-        if (store.STATE_DIR / f"{sid}.json").exists():
-            has_state.add(sid)
-        if store.artifacts_list(sid):
-            has_artifacts.add(sid)
-    
-    display_sessions = sessions[:args.limit]
-    
-    print(f"🗂  Sessions  ({len(sessions)} total)")
-    print("─" * 80)
-    print(f"  {'SESSION_ID':<40}  {'TOOLS':>5}  {'TURNS':>5}  {'LAST_SEEN':<20}")
-    print("  " + "─" * 76)
-    
-    for s in display_sessions:
-        sid = s["session_id"]
-        tools = s["tool_count"]
-        turns = s["turns"]
-        last_ts = s["last_ts"][:16] if s["last_ts"] else ""
-        
-        flags = ""
-        if sid in has_state:
-            flags += "[S]"
-        if sid in has_artifacts:
-            flags += "[A]"
-        
-        print(f"  {sid:<40}  {tools:>5}  {turns:>5}  {last_ts:<20}  {flags}")
-    
-    if len(sessions) > args.limit:
-        print(f"\n  ... {len(sessions) - args.limit} more (use --limit to show more)")
-    
-    print("\n  [S]=有State  [A]=有Artifacts")
 
-
-if __name__ == "__main__":
-    main()
+    sessions = scan_sessions(log_dir)
+    for s in sessions[: args.limit]:
+        print(
+            f"{s['session_id'][:8]}  tools={s['tool_count']}  turns={s['turns']}  last={s['last_ts']}  agent={s.get('agent', '')}"
+        )

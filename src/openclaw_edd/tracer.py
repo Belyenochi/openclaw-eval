@@ -1,13 +1,6 @@
-"""
-日志解析和事件提取
+"""Log parsing and event extraction utilities."""
 
-所有模块共用的核心解析逻辑，负责：
-- 读取 OpenClaw 日志文件
-- 解析 JSON Lines 格式
-- 提取语义事件（tool_start, tool_end, llm_response）
-- Session 聚合统计
-- Workspace 路径解析
-"""
+from __future__ import annotations
 
 import json
 import os
@@ -21,7 +14,7 @@ from typing import Generator, Optional
 from .models import Event
 
 # ============================================================================
-# 常量
+# 
 # ============================================================================
 
 LOG_DIR = Path("/tmp/openclaw")
@@ -31,7 +24,7 @@ TOOL_START_MSGS = {"embedded run tool start", "tool_start", "run tool start"}
 TOOL_END_MSGS = {"embedded run tool end", "tool_end", "run tool end"}
 TURN_END_MSGS = {"run finished", "agent done", "run complete", "turn end", "response sent"}
 
-# 正则匹配（用于快速预筛选，避免每行都 JSON 解析）
+# （， JSON ）
 TOOL_START_RE = re.compile(
     r'"msg"\s*:\s*"(?:embedded run tool start|tool_start|run tool start)"'
     r'|"event"\s*:\s*"agent\.run\.tool_start"'
@@ -41,27 +34,27 @@ TOOL_END_RE = re.compile(
     r'|"event"\s*:\s*"agent\.run\.tool_end"'
 )
 
-# ANSI 颜色码剥离
+# ANSI 
 ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
 
 
 # ============================================================================
-# 核心解析函数
+# 
 # ============================================================================
 
 def parse_line(line: str) -> Optional[dict]:
     """
-    解析单行 JSON，自动剥离 ANSI 颜色码，支持两种日志格式
+     JSON， ANSI ，
 
-    支持的格式：
-    1. 扁平格式（测试数据）：{"msg": "...", "tool": "...", "session_id": "..."}
-    2. _meta 包装格式（Gateway）：{"_meta": {...}, "1": "embedded run tool start: ..."}
+    ：
+    1. （）：{"msg": "...", "tool": "...", "session_id": "..."}
+    2. _meta （Gateway）：{"_meta": {...}, "1": "embedded run tool start: ..."}
 
     Args:
-        line: 日志行
+        line: 
 
     Returns:
-        解析后的 dict（统一转换为扁平格式），失败或无关日志返回 None
+         dict（）， None
     """
     line = ANSI_RE.sub('', line.strip())
     if not line:
@@ -70,41 +63,41 @@ def parse_line(line: str) -> Optional[dict]:
     try:
         entry = json.loads(line)
 
-        # 格式 1：扁平格式（直接返回）
+        #  1：（）
         if "_meta" not in entry:
             return entry
 
-        # 格式 2：_meta 包装格式（需要解析文本）
-        # 从 "1" 字段提取信息
+        #  2：_meta （）
+        #  "1" 
         msg_text = entry.get("1", "")
         if not msg_text:
             return None
 
-        # 解析文本中的关键信息
+        # 
         parsed = {}
 
-        # 提取 sessionId
+        #  sessionId
         if "sessionId=" in msg_text:
             import re
             match = re.search(r'sessionId=([a-f0-9\-]+)', msg_text)
             if match:
                 parsed["session_id"] = match.group(1)
 
-        # 提取 runId（作为备用）
+        #  runId（）
         if "runId=" in msg_text and "session_id" not in parsed:
             import re
             match = re.search(r'runId=([a-f0-9\-]+)', msg_text)
             if match:
                 parsed["session_id"] = match.group(1)
 
-        # 提取 tool
+        #  tool
         if "tool=" in msg_text:
             import re
             match = re.search(r'tool=(\w+)', msg_text)
             if match:
                 parsed["tool"] = match.group(1)
 
-        # 提取 msg 类型
+        #  msg 
         if "embedded run tool start" in msg_text:
             parsed["msg"] = "embedded run tool start"
         elif "embedded run tool end" in msg_text:
@@ -116,13 +109,13 @@ def parse_line(line: str) -> Optional[dict]:
         elif "response sent" in msg_text:
             parsed["msg"] = "response sent"
 
-        # 提取时间戳
+        # 
         if "time" in entry:
             parsed["ts"] = entry["time"]
         elif "_meta" in entry and "date" in entry["_meta"]:
             parsed["ts"] = entry["_meta"]["date"]
 
-        # 只返回包含 session_id 的日志
+        #  session_id 
         if "session_id" in parsed:
             return parsed
 
@@ -134,14 +127,14 @@ def parse_line(line: str) -> Optional[dict]:
 
 def read_all_logs(log_dir: Path = LOG_DIR, max_file_size_mb: int = 100) -> list[dict]:
     """
-    读取目录下所有 openclaw-*.log，按文件名排序
+     openclaw-*.log，
 
     Args:
-        log_dir: 日志目录
-        max_file_size_mb: 单文件大小限制（MB），超过则跳过
+        log_dir: 
+        max_file_size_mb: （MB），
 
     Returns:
-        所有日志行的 dict 列表
+         dict 
     """
     if not log_dir.exists():
         return []
@@ -154,8 +147,8 @@ def read_all_logs(log_dir: Path = LOG_DIR, max_file_size_mb: int = 100) -> list[
         try:
             file_size = log_file.stat().st_size
             if file_size > max_bytes:
-                print(f"⚠ 跳过大文件: {log_file.name} ({file_size / 1024 / 1024:.1f}MB > {max_file_size_mb}MB)")
-                print(f"  提示: 使用 --session 过滤或 trace 命令查看特定 session")
+                print(f"⚠ : {log_file.name} ({file_size / 1024 / 1024:.1f}MB > {max_file_size_mb}MB)")
+                print(f"  :  --session  trace  session")
                 continue
 
             with open(log_file, 'r', encoding='utf-8') as f:
@@ -164,21 +157,21 @@ def read_all_logs(log_dir: Path = LOG_DIR, max_file_size_mb: int = 100) -> list[
                     if entry:
                         entries.append(entry)
         except Exception as e:
-            print(f"⚠ 读取日志文件失败: {log_file} - {e}")
+            print(f"⚠ : {log_file} - {e}")
 
     return entries
 
 
 def read_logs_for_session(log_dir: Path, session_id: str) -> list[dict]:
     """
-    从日志中读取特定 session 的条目（支持大文件，使用索引）
+     session （）
 
     Args:
-        log_dir: 日志目录
-        session_id: Session ID 或前缀
+        log_dir: 
+        session_id: Session ID 
 
     Returns:
-        该 session 的所有日志行
+         session 
     """
     if not log_dir.exists():
         return []
@@ -186,69 +179,49 @@ def read_logs_for_session(log_dir: Path, session_id: str) -> list[dict]:
     log_files = sorted(log_dir.glob(LOG_GLOB))
     entries = []
 
-    # 导入索引模块
-    from . import indexer
-
     for log_file in log_files:
         try:
-            # 获取索引
-            idx_path = indexer.get_index_path(log_file)
-            index = indexer.load_index(log_file, idx_path)
-
-            # 查找匹配的 session
-            matched_sessions = [sid for sid in index.keys() if sid.startswith(session_id)]
-
-            if matched_sessions:
-                # 使用索引快速定位
-                for sid in matched_sessions:
-                    offset, _ = index[sid]
-                    for line in indexer.iter_session_lines(log_file, offset, sid):
-                        entry = parse_line(line)
-                        if entry:
-                            entries.append(entry)
-            else:
-                # 没有索引命中，回退到全量扫描（但只扫这个文件）
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        entry = parse_line(line)
-                        if entry and entry.get("session_id", "").startswith(session_id):
-                            entries.append(entry)
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    entry = parse_line(line)
+                    if entry and entry.get("session_id", "").startswith(session_id):
+                        entries.append(entry)
         except Exception as e:
-            print(f"⚠ 读取日志文件失败: {log_file} - {e}")
+            print(f"⚠ : {log_file} - {e}")
 
     return entries
 
 
 def _is_tool_start(entry: dict) -> bool:
-    """判断是否为 tool_start 事件"""
+    """ tool_start """
     msg = entry.get("msg", "")
     event = entry.get("event", "")
     return msg in TOOL_START_MSGS or event == "agent.run.tool_start"
 
 
 def _is_tool_end(entry: dict) -> bool:
-    """判断是否为 tool_end 事件"""
+    """ tool_end """
     msg = entry.get("msg", "")
     event = entry.get("event", "")
     return msg in TOOL_END_MSGS or event == "agent.run.tool_end"
 
 
 def _is_turn_end(entry: dict) -> bool:
-    """判断是否为 turn 结束事件"""
+    """ turn """
     msg = entry.get("msg", "")
     return any(end_msg in msg for end_msg in TURN_END_MSGS)
 
 
 def entry_to_event(entry: dict, raw_line: str = "") -> Optional[Event]:
     """
-    把一条日志 dict 转成 Event
+     dict  Event
 
     Args:
-        entry: 日志 dict
-        raw_line: 原始日志行（可选）
+        entry:  dict
+        raw_line: （）
 
     Returns:
-        Event 对象，不感兴趣的行返回 None
+        Event ， None
     """
     session_id = entry.get("session_id", "")
     ts = entry.get("ts", "")
@@ -290,14 +263,14 @@ def entry_to_event(entry: dict, raw_line: str = "") -> Optional[Event]:
 
 def extract_events(entries: list[dict], session_id: str = "") -> list[Event]:
     """
-    从日志行列表提取语义事件序列，自动配对 tool start/end
+    ， tool start/end
 
     Args:
-        entries: 日志行列表
-        session_id: 可选的 session 过滤（前缀匹配）
+        entries: 
+        session_id:  session （）
 
     Returns:
-        Event 列表
+        Event 
     """
     events = []
     pending = {}  # tool_name -> start_entry
@@ -305,7 +278,7 @@ def extract_events(entries: list[dict], session_id: str = "") -> list[Event]:
     for entry in entries:
         sid = entry.get("session_id", "")
 
-        # 过滤 session
+        #  session
         if session_id and not sid.startswith(session_id):
             continue
 
@@ -351,14 +324,14 @@ def extract_events(entries: list[dict], session_id: str = "") -> list[Event]:
 
 def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
     """
-    扫描全量日志，按 session_id 聚合统计（使用索引优化）
+    ， session_id （）
 
     Args:
-        log_dir: 日志目录
+        log_dir: 
 
     Returns:
-        Session 统计列表，按 last_ts 倒序
-        每个 dict 包含：session_id, first_ts, last_ts, tool_count, turns, agent
+        Session ， last_ts 
+         dict ：session_id, first_ts, last_ts, tool_count, turns, agent
     """
     if not log_dir.exists():
         return []
@@ -373,24 +346,16 @@ def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
         "agent": "",
     })
 
-    # 导入索引模块
-    from . import indexer
-
     for log_file in log_files:
         try:
-            file_size = log_file.stat().st_size
-
-            # 所有文件都使用索引（优化性能）
-            # 构建/加载索引
-            idx_path = indexer.get_index_path(log_file)
-            index = indexer.load_index(log_file, idx_path)
-
-            # 对每个 session 读取其日志行
-            for session_id in index.keys():
-                offset, _ = index[session_id]
-                for line in indexer.iter_session_lines(log_file, offset, session_id):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                for line in f:
                     entry = parse_line(line)
                     if not entry:
+                        continue
+
+                    session_id = entry.get("session_id", "")
+                    if not session_id:
                         continue
 
                     session = sessions[session_id]
@@ -412,93 +377,99 @@ def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
                         session["agent"] = entry["agent"]
 
         except Exception as e:
-            print(f"⚠ 处理日志文件失败: {log_file} - {e}")
+            print(f"⚠ : {log_file} - {e}")
 
-    # 按 last_ts 倒序
+    #  last_ts 
     result = sorted(sessions.values(), key=lambda x: x["last_ts"], reverse=True)
     return result
 
 
 def tail_f(path: Path, from_end: bool = True) -> Generator[str, None, None]:
     """
-    流式读取文件新增行的生成器
+    
 
     Args:
-        path: 文件路径
-        from_end: 是否从文件末尾开始（True 时只读新增内容）
+        path: 
+        from_end: （True ）
 
     Yields:
-        新增的行
+        
     """
     if not path.exists():
-        # 等待文件创建
-        while not path.exists():
-            time.sleep(0.5)
+        # 
+        try:
+            while not path.exists():
+                time.sleep(0.5)
+        except KeyboardInterrupt:
+            return
 
     current_inode = os.stat(path).st_ino
     current_date = date.today()
 
     with open(path, 'r', encoding='utf-8') as f:
         if from_end:
-            f.seek(0, 2)  # 跳到文件末尾
+            f.seek(0, 2)  # 
 
-        while True:
-            line = f.readline()
-            if line:
-                yield line
-            else:
-                # 检查日志轮转
-                time.sleep(0.05)
+        try:
+            while True:
+                line = f.readline()
+                if line:
+                    yield line
+                else:
+                    # 
+                    time.sleep(0.05)
 
-                # 检查跨天
-                new_date = date.today()
-                if new_date != current_date:
-                    # 切换到新日志文件
-                    new_path = path.parent / f"openclaw-{new_date.strftime('%Y-%m-%d')}.log"
-                    if new_path.exists():
-                        path = new_path
-                        current_date = new_date
-                        current_inode = os.stat(path).st_ino
-                        f.close()
-                        f = open(path, 'r', encoding='utf-8')
-                        continue
+                    # 
+                    new_date = date.today()
+                    if new_date != current_date:
+                        # 
+                        new_path = path.parent / f"openclaw-{new_date.strftime('%Y-%m-%d')}.log"
+                        if new_path.exists():
+                            path = new_path
+                            current_date = new_date
+                            current_inode = os.stat(path).st_ino
+                            f.close()
+                            f = open(path, 'r', encoding='utf-8')
+                            continue
 
-                # 检查 inode 变化
-                try:
-                    new_inode = os.stat(path).st_ino
-                    if new_inode != current_inode:
-                        # 文件被轮转，重新打开
-                        current_inode = new_inode
-                        f.close()
-                        f = open(path, 'r', encoding='utf-8')
-                except FileNotFoundError:
-                    # 文件被删除，等待重新创建
-                    time.sleep(0.5)
-                    if path.exists():
-                        current_inode = os.stat(path).st_ino
-                        f.close()
-                        f = open(path, 'r', encoding='utf-8')
+                    #  inode 
+                    try:
+                        new_inode = os.stat(path).st_ino
+                        if new_inode != current_inode:
+                            # ，
+                            current_inode = new_inode
+                            f.close()
+                            f = open(path, 'r', encoding='utf-8')
+                    except FileNotFoundError:
+                        # ，
+                        time.sleep(0.5)
+                        if path.exists():
+                            current_inode = os.stat(path).st_ino
+                            f.close()
+                            f = open(path, 'r', encoding='utf-8')
+        except KeyboardInterrupt:
+            return
 
 
 def get_workspace(override: str = "") -> Path:
     """
-    Workspace 路径解析
+    Workspace 
 
-    优先级：
-    1. override 参数（非空时直接用）
+    ：
+    1. override （）
     2. ~/.openclaw/openclaw.json → agents.defaults.workspace
     3. fallback: ~/.openclaw/workspace
 
     Args:
-        override: 覆盖路径
+        override: 
 
     Returns:
-        Workspace 路径
+        Workspace 
     """
     if override:
         return Path(override).expanduser()
 
-    # 尝试从配置文件读取
+    # 
     config_file = Path.home() / ".openclaw" / "openclaw.json"
     if config_file.exists():
         try:
