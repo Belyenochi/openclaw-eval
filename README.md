@@ -10,6 +10,7 @@ Zero-friction quality gates — log files as the single source of truth.
 
 [中文文档](README_CN.md)
 
+
 ## Features
 
 - ✅ **Zero Configuration** - `pip install openclaw-edd && openclaw-edd watch` and go
@@ -37,6 +38,7 @@ openclaw-edd edd diff --before round1.json --after round2.json
 ```
 
 📖 **[Complete User Guide →](./USER_JOURNEY.md)** — 7-step walkthrough from install to CI integration.
+
 中文版本：**[用户路径指南 →](./USER_JOURNEY_CN.md)**。
 
 ## Commands
