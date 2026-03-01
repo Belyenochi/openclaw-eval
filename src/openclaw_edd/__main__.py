@@ -1,4 +1,4 @@
-"""Entry point for python -m openclaw_edd"""
+"""Entry point for python -m openclaw_edd."""
 
 from .cli import main
 

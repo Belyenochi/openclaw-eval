@@ -1,4 +1,4 @@
-from openclaw_edd.models import Event, EvalCase, EvalResult
+from openclaw_edd.models import EvalCase, EvalResult, Event
 
 
 def test_event_to_dict_filters_empty_values():

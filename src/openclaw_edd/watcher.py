@@ -9,7 +9,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import tracer, store, session_reader
+from . import session_reader, store, tracer
 
 # ============================================================================
 #

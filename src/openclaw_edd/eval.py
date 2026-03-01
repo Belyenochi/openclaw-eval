@@ -16,9 +16,9 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import session_reader, store
 from .models import EvalCase, EvalResult, Event
 from .tracer import _is_turn_end
-from . import store, session_reader
 
 # Built-in cases
 BUILTIN_CASES = [

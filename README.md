@@ -53,12 +53,12 @@ openclaw-edd edd diff --before round1.json --after round2.json
 
 ### EDD Loop Commands
 
-- **edd suggest** - Generate improvement suggestions from failed cases
-- **edd apply** - Apply suggestions to workspace
-- **edd diff** - Compare changes between two runs
-- **edd mine** - Mine golden cases from historical logs
-- **edd judge** - LLM-based scoring for tool selection and output quality
-- **edd export** - Export golden dataset (JSONL/CSV)
+- **`openclaw-edd edd suggest`** - Generate improvement suggestions from failed cases
+- **`openclaw-edd edd apply`** - Apply suggestions to workspace
+- **`openclaw-edd edd diff`** - Compare changes between two runs
+- **`openclaw-edd edd mine`** - Mine golden cases from historical logs
+- **`openclaw-edd edd judge`** - LLM-based scoring for tool selection and output quality
+- **`openclaw-edd edd export`** - Export golden dataset (JSONL/CSV)
 
 
 ## Test Case Format

@@ -9,7 +9,7 @@
 
 ## 特性
 
-- ✅ **零配置** - `pip install openclaw-edd && edd watch` 即用
+- ✅ **零配置** - `pip install openclaw-edd && openclaw-edd watch` 即用
 - ✅ **零侵入** - 不需要改 OpenClaw 配置，不需要重启 Gateway
 - ✅ **零依赖** - 核心功能无需任何外部库（PyYAML 可选）
 - ✅ **完整闭环** - watch → run → suggest → apply → diff → mine → export
@@ -53,12 +53,12 @@ openclaw-edd edd export --format csv --output review.csv
 
 ### EDD 闭环命令
 
-- **edd suggest** - 从失败 cases 生成修改建议
-- **edd apply** - 应用建议到 workspace
-- **edd diff** - 对比两次 run 的变化
-- **edd mine** - 从历史日志挖掘 golden cases
-- **edd judge** - 用 LLM 对 tool 选择和 output 质量打分
-- **edd export** - 导出 golden dataset（JSONL/CSV）
+- **`openclaw-edd edd suggest`** - 从失败 cases 生成修改建议
+- **`openclaw-edd edd apply`** - 应用建议到 workspace
+- **`openclaw-edd edd diff`** - 对比两次 run 的变化
+- **`openclaw-edd edd mine`** - 从历史日志挖掘 golden cases
+- **`openclaw-edd edd judge`** - 用 LLM 对 tool 选择和 output 质量打分
+- **`openclaw-edd edd export`** - 导出 golden dataset（JSONL/CSV）
 
 ## 详细用法
 

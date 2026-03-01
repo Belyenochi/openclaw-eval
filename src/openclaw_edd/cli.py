@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import edd, eval as eval_module, watcher
+from . import edd
+from . import eval as eval_module
+from . import watcher
 
 
 def main() -> None:
@@ -217,10 +219,10 @@ def main() -> None:
 
 def cmd_trace(args: argparse.Namespace) -> None:
     """Trace a session and print event details."""
-    from pathlib import Path
     import json
+    from pathlib import Path
 
-    from .tracer import read_logs_for_session, extract_events
+    from .tracer import extract_events, read_logs_for_session
 
     log_dir = Path(args.log_dir)
     entries = read_logs_for_session(log_dir, args.session)
@@ -266,8 +268,8 @@ def cmd_state(args: argparse.Namespace) -> None:
     import json
     from pathlib import Path
 
-    from .tracer import read_logs_for_session, extract_events
     from . import store
+    from .tracer import extract_events, read_logs_for_session
 
     log_dir = Path(args.log_dir)
 
@@ -307,7 +309,7 @@ def cmd_artifacts(args: argparse.Namespace) -> None:
     from . import store
 
     if args.extract:
-        from .tracer import read_logs_for_session, extract_events
+        from .tracer import extract_events, read_logs_for_session
 
         log_dir = Path(args.log_dir)
         entries = read_logs_for_session(log_dir, args.session)
@@ -335,9 +337,10 @@ def cmd_artifacts(args: argparse.Namespace) -> None:
 
 def cmd_sessions(args: argparse.Namespace) -> None:
     """List or show sessions."""
-    from .tracer import scan_sessions, read_logs_for_session, extract_events
-    from pathlib import Path
     import json
+    from pathlib import Path
+
+    from .tracer import extract_events, read_logs_for_session, scan_sessions
 
     log_dir = Path(args.log_dir)
 

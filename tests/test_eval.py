@@ -1,7 +1,7 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
-from openclaw_edd.models import Event, EvalCase
 from openclaw_edd import eval as eval_module
+from openclaw_edd.models import EvalCase, Event
 
 
 def _ev(tool, command, ts):
