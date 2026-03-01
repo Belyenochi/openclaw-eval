@@ -15,14 +15,18 @@ def main() -> None:
         description="OpenClaw EDD toolkit - Evaluation-Driven Development",
     )
 
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug output")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable debug output"
+    )
     parser.add_argument("--log-dir", default="/tmp/openclaw", help="Log directory")
 
     subparsers = parser.add_subparsers(dest="cmd", required=True, help="Subcommands")
 
     watch_parser = subparsers.add_parser("watch", help="Stream tool events")
     watch_parser.add_argument("--session", help="Filter by session ID prefix")
-    watch_parser.add_argument("--from-start", action="store_true", help="Read from file start")
+    watch_parser.add_argument(
+        "--from-start", action="store_true", help="Read from file start"
+    )
     watch_parser.add_argument(
         "--save-artifacts",
         action="store_true",
@@ -50,9 +54,13 @@ def main() -> None:
     state_parser.add_argument("--set", action="append", help="Set key=value")
     state_parser.add_argument("--delete", action="append", help="Delete key")
 
-    artifacts_parser = subparsers.add_parser("artifacts", help="Manage tool output files")
+    artifacts_parser = subparsers.add_parser(
+        "artifacts", help="Manage tool output files"
+    )
     artifacts_parser.add_argument("--session", help="Session ID")
-    artifacts_parser.add_argument("--extract", action="store_true", help="Extract from logs")
+    artifacts_parser.add_argument(
+        "--extract", action="store_true", help="Extract from logs"
+    )
     artifacts_parser.add_argument("--export", help="Export to directory")
 
     sessions_parser = subparsers.add_parser("sessions", help="List or view sessions")
@@ -61,7 +69,9 @@ def main() -> None:
 
     run_parser = subparsers.add_parser("run", help="Run evaluation cases")
     run_parser.add_argument("--cases", help="Case file (YAML/JSON/JSONL)")
-    run_parser.add_argument("--quickstart", action="store_true", help="Use built-in quickstart cases")
+    run_parser.add_argument(
+        "--quickstart", action="store_true", help="Use built-in quickstart cases"
+    )
     run_parser.add_argument("--tags", nargs="+", help="Filter by tags")
     run_parser.add_argument("--case", help="Single case message")
     run_parser.add_argument("--expect-tools", nargs="+", help="Expected tool names")
@@ -89,9 +99,7 @@ def main() -> None:
         "--dry-run", action="store_true", help="Do not send messages"
     )
     run_parser.add_argument("--session", help="Session ID (dry-run)")
-    run_parser.add_argument(
-        "--show-trace", action="store_true", help="Show tool trace"
-    )
+    run_parser.add_argument("--show-trace", action="store_true", help="Show tool trace")
     run_parser.add_argument(
         "--baseline", help="Baseline report file (JSON) for comparison"
     )
@@ -117,7 +125,9 @@ def main() -> None:
     suggest_parser.add_argument("--workspace", default="", help="Workspace path")
 
     apply_parser = edd_subparsers.add_parser("apply", help="Apply suggestions")
-    apply_parser.add_argument("--suggestion-file", required=True, help="Suggestion file")
+    apply_parser.add_argument(
+        "--suggestion-file", required=True, help="Suggestion file"
+    )
     apply_parser.add_argument("--yes", action="store_true", help="Skip confirmation")
     apply_parser.add_argument("--workspace", default="", help="Workspace path")
 
@@ -128,11 +138,11 @@ def main() -> None:
         "--format", choices=["text", "json"], default="text", help="Output format"
     )
 
-    mine_parser = edd_subparsers.add_parser(
-        "mine", help="Mine golden cases from logs"
-    )
+    mine_parser = edd_subparsers.add_parser("mine", help="Mine golden cases from logs")
     mine_parser.add_argument("--output", default="mined_cases.yaml", help="Output file")
-    mine_parser.add_argument("--min-tools", type=int, default=1, help="Minimum tool calls")
+    mine_parser.add_argument(
+        "--min-tools", type=int, default=1, help="Minimum tool calls"
+    )
     mine_parser.add_argument("--log-dir", help="Log directory")
     mine_parser.add_argument("--workspace", default="", help="Workspace path")
 
@@ -158,7 +168,9 @@ def main() -> None:
 
     export_parser = edd_subparsers.add_parser("export", help="Export golden dataset")
     export_parser.add_argument("--output", default="golden.jsonl", help="Output file")
-    export_parser.add_argument("--min-tools", type=int, default=1, help="Minimum tool calls")
+    export_parser.add_argument(
+        "--min-tools", type=int, default=1, help="Minimum tool calls"
+    )
     export_parser.add_argument("--log-dir", help="Log directory")
     export_parser.add_argument("--workspace", default="", help="Workspace path")
     export_parser.add_argument("--merge-report", help="Merge report for final output")
@@ -202,6 +214,7 @@ def main() -> None:
 # Simplified command implementations (trace, state, artifacts, sessions)
 # ---------------------------------------------------------------------------
 
+
 def cmd_trace(args: argparse.Namespace) -> None:
     """Trace a session and print event details."""
     from pathlib import Path
@@ -234,10 +247,16 @@ def cmd_trace(args: argparse.Namespace) -> None:
             duration_str = f"{event.duration_ms}ms" if event.duration_ms else ""
             print(f"#{i:02d} TOOL_END    {event.tool}  {duration_str}  {event.ts}")
             if event.output:
-                output_str = event.output[:100] + "..." if len(event.output) > 100 else event.output
+                output_str = (
+                    event.output[:100] + "..."
+                    if len(event.output) > 100
+                    else event.output
+                )
                 print(f"     output: {output_str}")
         elif event.kind == "llm_response":
-            output_str = event.output[:200] + "..." if len(event.output) > 200 else event.output
+            output_str = (
+                event.output[:200] + "..." if len(event.output) > 200 else event.output
+            )
             print(f"#{i:02d} LLM_RESP    {event.ts}")
             print(f"     {output_str}")
 
@@ -326,7 +345,9 @@ def cmd_sessions(args: argparse.Namespace) -> None:
         entries = read_logs_for_session(log_dir, args.show)
         events = extract_events(entries, args.show)
         if args.format == "json":
-            print(json.dumps([e.to_dict() for e in events], indent=2, ensure_ascii=False))
+            print(
+                json.dumps([e.to_dict() for e in events], indent=2, ensure_ascii=False)
+            )
         else:
             print(f"Session {args.show} ({len(events)} events)")
         return

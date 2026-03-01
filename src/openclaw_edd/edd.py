@@ -19,12 +19,18 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from .tracer import read_all_logs, extract_events, get_workspace, _is_turn_end, sessions_from_logs
-
+from .tracer import (
+    read_all_logs,
+    extract_events,
+    get_workspace,
+    _is_turn_end,
+    sessions_from_logs,
+)
 
 # ============================================================================
-# suggest 
+# suggest
 # ============================================================================
+
 
 def analyze_failure(result: dict, workspace: Path) -> dict:
     """AnalyzeFailure reason，"""
@@ -37,13 +43,14 @@ def analyze_failure(result: dict, workspace: Path) -> dict:
         "case_id": case_id,
         "message": message,
         "failures": failures,
-        "recommendations": []
+        "recommendations": [],
     }
 
     for failure in failures:
         if "" in failure:
-            # 
+            #
             import re
+
             match = re.search(r"'(\w+)'", failure)
             if match:
                 missing_tool = match.group(1)
@@ -53,50 +60,55 @@ def analyze_failure(result: dict, workspace: Path) -> dict:
                 skill_file = skills_dir / f"{missing_tool}.md"
 
                 if skill_file.exists():
-                    suggestion["recommendations"].append({
-                        "type": "modify_skill",
-                        "file": f"skills/{missing_tool}.md",
-                        "action": f"Steps：{missing_tool}"
-                    })
+                    suggestion["recommendations"].append(
+                        {
+                            "type": "modify_skill",
+                            "file": f"skills/{missing_tool}.md",
+                            "action": f"Steps：{missing_tool}",
+                        }
+                    )
                 else:
-                    suggestion["recommendations"].append({
-                        "type": "create_skill",
-                        "file": f"skills/{case_id}.md",
-                        "action": f" skill，：{missing_tool}"
-                    })
+                    suggestion["recommendations"].append(
+                        {
+                            "type": "create_skill",
+                            "file": f"skills/{case_id}.md",
+                            "action": f" skill，：{missing_tool}",
+                        }
+                    )
 
         elif "" in failure:
-            suggestion["recommendations"].append({
-                "type": "modify_skill",
-                "file": f"skills/{case_id}.md",
-                "action": ""
-            })
+            suggestion["recommendations"].append(
+                {"type": "modify_skill", "file": f"skills/{case_id}.md", "action": ""}
+            )
 
         elif "" in failure:
-            suggestion["recommendations"].append({
-                "type": "modify_tools",
-                "file": "TOOLS.md",
-                "action": "Usage"
-            })
+            suggestion["recommendations"].append(
+                {"type": "modify_tools", "file": "TOOLS.md", "action": "Usage"}
+            )
 
         elif "Output" in failure:
-            suggestion["recommendations"].append({
-                "type": "modify_skill",
-                "file": f"skills/{case_id}.md",
-                "action": "Output format"
-            })
+            suggestion["recommendations"].append(
+                {
+                    "type": "modify_skill",
+                    "file": f"skills/{case_id}.md",
+                    "action": "Output format",
+                }
+            )
 
         elif "" in failure:
-            # 
+            #
             import re
+
             match = re.search(r": (\w+)\.(\w+) =(\S+) =(\S+)", failure)
             if match:
                 tool_name, arg_key, expected, actual = match.groups()
-                suggestion["recommendations"].append({
-                    "type": "modify_skill",
-                    "file": f"skills/{case_id}.md",
-                    "action": f" skill ：{tool_name}  {arg_key}={expected}"
-                })
+                suggestion["recommendations"].append(
+                    {
+                        "type": "modify_skill",
+                        "file": f"skills/{case_id}.md",
+                        "action": f" skill ：{tool_name}  {arg_key}={expected}",
+                    }
+                )
 
     return suggestion
 
@@ -107,7 +119,7 @@ def cmd_suggest(args):
         print(f"✗ Report file not found: {args.report}")
         sys.exit(1)
 
-    with open(args.report, 'r', encoding='utf-8') as f:
+    with open(args.report, "r", encoding="utf-8") as f:
         results = json.load(f)
 
     workspace = get_workspace(args.workspace)
@@ -121,22 +133,22 @@ def cmd_suggest(args):
 
     for result in failed_results:
         suggestion = analyze_failure(result, workspace)
-        
+
         print(f"=== case: {suggestion['case_id']} ===")
         print(f"Message: {suggestion['message']}")
-        for failure in suggestion['failures']:
+        for failure in suggestion["failures"]:
             print(f"Failure reason: {failure}")
-        
-        for rec in suggestion['recommendations']:
+
+        for rec in suggestion["recommendations"]:
             print(f"Suggested file: {rec['file']}")
             print(f"Suggested change: {rec['action']}")
-        
+
         print("─" * 60)
         print()
 
 
 # ============================================================================
-# apply 
+# apply
 # ============================================================================
 
 READONLY_FILES = {"SOUL.md", "AGENTS.md", "USER.md", "BOOTSTRAP.md", "IDENTITY.md"}
@@ -144,17 +156,17 @@ READONLY_FILES = {"SOUL.md", "AGENTS.md", "USER.md", "BOOTSTRAP.md", "IDENTITY.m
 
 def apply_suggestion(suggestion: dict, workspace: Path, auto_yes: bool = False):
     """Apply a single suggestion"""
-    for rec in suggestion['recommendations']:
-        file_path = workspace / rec['file']
-        
-        # 
+    for rec in suggestion["recommendations"]:
+        file_path = workspace / rec["file"]
+
+        #
         if file_path.name in READONLY_FILES:
             print(f"[SKIP] {file_path.name} is read-only; please edit manually")
             print(f"Suggested change: {rec['action']}")
             continue
 
-        # 
-        if rec['type'] == 'create_skill':
+        #
+        if rec["type"] == "create_skill":
             content = f"""# {suggestion['case_id']}
 
 ## Trigger
@@ -176,24 +188,24 @@ Return a natural-language response with relevant details
 
             if not auto_yes:
                 confirm = input("Confirm create? (y/n): ")
-                if confirm.lower() != 'y':
+                if confirm.lower() != "y":
                     print("[SKIP]")
                     continue
 
-            # 
+            #
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_file = file_path.with_suffix('.tmp')
-            with open(tmp_file, 'w', encoding='utf-8') as f:
+            tmp_file = file_path.with_suffix(".tmp")
+            with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(content)
             tmp_file.rename(file_path)
             print(f"✓ Created: {file_path}")
 
-        elif rec['type'] == 'modify_tools':
+        elif rec["type"] == "modify_tools":
             if not file_path.exists():
                 print(f"[SKIP] {file_path} does not exist")
                 continue
 
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 original = f.read()
 
             # Find "## Usage" section
@@ -208,26 +220,26 @@ Return a natural-language response with relevant details
                 original.splitlines(keepends=True),
                 new_content.splitlines(keepends=True),
                 fromfile=str(file_path),
-                tofile=str(file_path)
+                tofile=str(file_path),
             )
-            print(''.join(diff))
+            print("".join(diff))
 
             if not auto_yes:
                 confirm = input("Confirm update? (y/n): ")
-                if confirm.lower() != 'y':
+                if confirm.lower() != "y":
                     print("[SKIP]")
                     continue
 
-            # 
-            tmp_file = file_path.with_suffix('.tmp')
-            with open(tmp_file, 'w', encoding='utf-8') as f:
+            #
+            tmp_file = file_path.with_suffix(".tmp")
+            with open(tmp_file, "w", encoding="utf-8") as f:
                 f.write(new_content)
             tmp_file.rename(file_path)
             print(f"✓ Updated: {file_path}")
 
 
 def cmd_apply(args):
-    """Apply """
+    """Apply"""
     if not Path(args.suggestion_file).exists():
         print(f"✗ Suggested filedoes not exist: {args.suggestion_file}")
         sys.exit(1)
@@ -238,8 +250,9 @@ def cmd_apply(args):
 
 
 # ============================================================================
-# diff 
+# diff
 # ============================================================================
+
 
 def cmd_diff(args):
     """Diff command entry"""
@@ -247,51 +260,115 @@ def cmd_diff(args):
         print("✗ Report file not found")
         sys.exit(1)
 
-    with open(args.before, 'r', encoding='utf-8') as f:
+    with open(args.before, "r", encoding="utf-8") as f:
         before_results = json.load(f)
-    with open(args.after, 'r', encoding='utf-8') as f:
+    with open(args.after, "r", encoding="utf-8") as f:
         after_results = json.load(f)
 
-    # 
+    #
     before_passed = sum(1 for r in before_results if r.get("passed", False))
     after_passed = sum(1 for r in after_results if r.get("passed", False))
     before_rate = before_passed / len(before_results) * 100 if before_results else 0
     after_rate = after_passed / len(after_results) * 100 if after_results else 0
 
-    before_avg = sum(r.get("duration_s", 0) for r in before_results) / len(before_results) if before_results else 0
-    after_avg = sum(r.get("duration_s", 0) for r in after_results) / len(after_results) if after_results else 0
+    before_avg = (
+        sum(r.get("duration_s", 0) for r in before_results) / len(before_results)
+        if before_results
+        else 0
+    )
+    after_avg = (
+        sum(r.get("duration_s", 0) for r in after_results) / len(after_results)
+        if after_results
+        else 0
+    )
 
     print("📊 EDD Diff")
     print(f"baseline : {args.before}")
     print(f"new      : {args.after}")
     print("─" * 60)
 
-    #  eval_type 
-    before_regression = [r for r in before_results if r.get("case", {}).get("eval_type", "regression") == "regression"]
-    after_regression = [r for r in after_results if r.get("case", {}).get("eval_type", "regression") == "regression"]
-    before_capability = [r for r in before_results if r.get("case", {}).get("eval_type", "regression") == "capability"]
-    after_capability = [r for r in after_results if r.get("case", {}).get("eval_type", "regression") == "capability"]
+    #  eval_type
+    before_regression = [
+        r
+        for r in before_results
+        if r.get("case", {}).get("eval_type", "regression") == "regression"
+    ]
+    after_regression = [
+        r
+        for r in after_results
+        if r.get("case", {}).get("eval_type", "regression") == "regression"
+    ]
+    before_capability = [
+        r
+        for r in before_results
+        if r.get("case", {}).get("eval_type", "regression") == "capability"
+    ]
+    after_capability = [
+        r
+        for r in after_results
+        if r.get("case", {}).get("eval_type", "regression") == "capability"
+    ]
 
     if before_regression or after_regression:
-        before_reg_rate = (sum(1 for r in before_regression if r.get("passed", False)) / len(before_regression) * 100) if before_regression else 0
-        after_reg_rate = (sum(1 for r in after_regression if r.get("passed", False)) / len(after_regression) * 100) if after_regression else 0
+        before_reg_rate = (
+            (
+                sum(1 for r in before_regression if r.get("passed", False))
+                / len(before_regression)
+                * 100
+            )
+            if before_regression
+            else 0
+        )
+        after_reg_rate = (
+            (
+                sum(1 for r in after_regression if r.get("passed", False))
+                / len(after_regression)
+                * 100
+            )
+            if after_regression
+            else 0
+        )
         delta_reg = after_reg_rate - before_reg_rate
         symbol_reg = "✓" if delta_reg >= 0 else "✗"
-        print(f"Regression: {before_reg_rate:.0f}% → {after_reg_rate:.0f}% {symbol_reg} ({delta_reg:+.0f}%)")
+        print(
+            f"Regression: {before_reg_rate:.0f}% → {after_reg_rate:.0f}% {symbol_reg} ({delta_reg:+.0f}%)"
+        )
 
     if before_capability or after_capability:
-        before_cap_rate = (sum(1 for r in before_capability if r.get("passed", False)) / len(before_capability) * 100) if before_capability else 0
-        after_cap_rate = (sum(1 for r in after_capability if r.get("passed", False)) / len(after_capability) * 100) if after_capability else 0
+        before_cap_rate = (
+            (
+                sum(1 for r in before_capability if r.get("passed", False))
+                / len(before_capability)
+                * 100
+            )
+            if before_capability
+            else 0
+        )
+        after_cap_rate = (
+            (
+                sum(1 for r in after_capability if r.get("passed", False))
+                / len(after_capability)
+                * 100
+            )
+            if after_capability
+            else 0
+        )
         delta_cap = after_cap_rate - before_cap_rate
         symbol_cap = "✓" if delta_cap >= 0 else "✗"
-        print(f"Capability: {before_cap_rate:.0f}% → {after_cap_rate:.0f}% {symbol_cap} ({delta_cap:+.1f}%)")
+        print(
+            f"Capability: {before_cap_rate:.0f}% → {after_cap_rate:.0f}% {symbol_cap} ({delta_cap:+.1f}%)"
+        )
 
     print()
-    print(f"Pass rate:  {before_rate:.0f}% → {after_rate:.0f}%  ({after_rate - before_rate:+.0f}%)")
-    print(f"Duration:       {before_avg:.1f}s → {after_avg:.1f}s  ({after_avg - before_avg:+.1f}s)")
+    print(
+        f"Pass rate:  {before_rate:.0f}% → {after_rate:.0f}%  ({after_rate - before_rate:+.0f}%)"
+    )
+    print(
+        f"Duration:       {before_avg:.1f}s → {after_avg:.1f}s  ({after_avg - before_avg:+.1f}s)"
+    )
     print()
 
-    #  case_id 
+    #  case_id
     before_map = {r["case"]["id"]: r for r in before_results}
     after_map = {r["case"]["id"]: r for r in after_results}
 
@@ -329,12 +406,18 @@ def cmd_diff(args):
 
 
 # ============================================================================
-# mine 
+# mine
 # ============================================================================
+
 
 def cmd_mine(args):
     """Mine command entry"""
-    from .tracer import LOG_DIR, sessions_from_logs, read_logs_for_session, extract_events
+    from .tracer import (
+        LOG_DIR,
+        sessions_from_logs,
+        read_logs_for_session,
+        extract_events,
+    )
 
     log_dir = Path(args.log_dir) if args.log_dir else LOG_DIR
 
@@ -364,7 +447,8 @@ def cmd_mine(args):
     if output_file.exists():
         try:
             import yaml
-            with open(output_file, 'r', encoding='utf-8') as f:
+
+            with open(output_file, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
                 if data and "cases" in data:
                     for case in data.get("cases", []):
@@ -403,10 +487,10 @@ def cmd_mine(args):
         case = {
             "id": f"mined_{session_id[:8]}",
             "message": message,
-            "expect_tools": list(dict.fromkeys(tool_names)),  # 
+            "expect_tools": list(dict.fromkeys(tool_names)),  #
             "expect_tools_ordered": tool_names,
             "tags": ["mined"],
-            "description": f"From session {session_id[:8]} ， {session['last_ts'][:10]}"
+            "description": f"From session {session_id[:8]} ， {session['last_ts'][:10]}",
         }
 
         new_cases.append(case)
@@ -416,12 +500,13 @@ def cmd_mine(args):
         print("✓ No new cases to add")
         return
 
-    # 
+    #
     output_data = {"cases": new_cases}
 
     try:
         import yaml
-        with open(output_file, 'w', encoding='utf-8') as f:
+
+        with open(output_file, "w", encoding="utf-8") as f:
             yaml.dump(output_data, f, allow_unicode=True, default_flow_style=False)
         print(f"✓ Generated {len(new_cases)} : {output_file}")
     except ImportError:
@@ -430,8 +515,9 @@ def cmd_mine(args):
 
 
 # ============================================================================
-# export 
+# export
 # ============================================================================
+
 
 def cmd_export(args):
     """Export command entry - export golden dataset"""
@@ -449,14 +535,16 @@ def cmd_export(args):
         return
 
     #  sessions
-    sessions_dict = defaultdict(lambda: {
-        "session_id": "",
-        "first_ts": "",
-        "last_ts": "",
-        "tool_count": 0,
-        "turns": 0,
-        "agent": "",
-    })
+    sessions_dict = defaultdict(
+        lambda: {
+            "session_id": "",
+            "first_ts": "",
+            "last_ts": "",
+            "tool_count": 0,
+            "turns": 0,
+            "agent": "",
+        }
+    )
 
     for entry in entries:
         session_id = entry.get("session_id", "")
@@ -486,7 +574,7 @@ def cmd_export(args):
     #  merge report（）
     merge_data = {}
     if args.merge_report and Path(args.merge_report).exists():
-        with open(args.merge_report, 'r', encoding='utf-8') as f:
+        with open(args.merge_report, "r", encoding="utf-8") as f:
             report_results = json.load(f)
             for r in report_results:
                 if r.get("passed"):
@@ -494,7 +582,9 @@ def cmd_export(args):
                     merge_data[message] = r.get("final_output", "")
 
     #  session
-    successful_sessions = [s for s in sessions if s["tool_count"] >= args.min_tools and s["turns"] > 0]
+    successful_sessions = [
+        s for s in sessions if s["tool_count"] >= args.min_tools and s["turns"] > 0
+    ]
 
     if not successful_sessions:
         print("✗ No sessions matched criteria")
@@ -502,15 +592,16 @@ def cmd_export(args):
 
     print(f"📦 From {len(successful_sessions)} sessions, export golden dataset")
 
-    # ： session  skill 
+    # ： session  skill
     session_data_list = []
-    skill_to_tools = defaultdict(set)  # skill_triggered ->  skill  session 
+    skill_to_tools = defaultdict(set)  # skill_triggered ->  skill  session
 
     for session in successful_sessions:
         session_id = session["session_id"]
 
         # Read session logs
         from .tracer import read_logs_for_session
+
         entries = read_logs_for_session(log_dir, session_id)
         events = extract_events(entries, session_id)
 
@@ -531,11 +622,13 @@ def cmd_export(args):
         golden_tools = []
         for event in events:
             if event.kind == "tool_end":
-                golden_tools.append({
-                    "name": event.tool,
-                    "args": event.input,
-                    "output_summary": event.output[:200] if event.output else ""
-                })
+                golden_tools.append(
+                    {
+                        "name": event.tool,
+                        "args": event.input,
+                        "output_summary": event.output[:200] if event.output else "",
+                    }
+                )
 
         # Get golden_output
         golden_output = ""
@@ -574,7 +667,7 @@ def cmd_export(args):
             "tool_names": tool_names,
             "golden_output": golden_output,
             "golden_output_source": golden_output_source,
-            "skill_triggered": skill_triggered
+            "skill_triggered": skill_triggered,
         }
         session_data_list.append(session_data)
 
@@ -604,11 +697,13 @@ def cmd_export(args):
         # Generate tool_args assertions
         for tool_data in golden_tools:
             if tool_data["args"]:
-                asserts.append({
-                    "type": "tool_args",
-                    "tool": tool_data["name"],
-                    "args": tool_data["args"]
-                })
+                asserts.append(
+                    {
+                        "type": "tool_args",
+                        "tool": tool_data["name"],
+                        "args": tool_data["args"],
+                    }
+                )
 
         # Extract keywords with simple frequency
         if golden_output:
@@ -623,8 +718,20 @@ def cmd_export(args):
         all_tools_in_skill = skill_to_tools[skill_key]
 
         #  session  > 1 Generate not_tool_called
-        if len([s for s in session_data_list if (s["skill_triggered"] if s["skill_triggered"] else "__no_skill__") == skill_key]) > 1:
-            #  session  session 
+        if (
+            len(
+                [
+                    s
+                    for s in session_data_list
+                    if (
+                        s["skill_triggered"] if s["skill_triggered"] else "__no_skill__"
+                    )
+                    == skill_key
+                ]
+            )
+            > 1
+        ):
+            #  session  session
             forbidden_tools = all_tools_in_skill - set(tool_names)
             for tool in sorted(forbidden_tools):
                 asserts.append({"type": "not_tool_called", "value": tool})
@@ -641,7 +748,7 @@ def cmd_export(args):
                     "user": user_message,
                     "golden_tool_sequence": golden_tools,
                     "golden_output": golden_output,
-                    "assert": asserts
+                    "assert": asserts,
                 }
             ],
             "metadata": {
@@ -649,8 +756,8 @@ def cmd_export(args):
                 "agent": session.get("agent", "main"),
                 "extracted_at": datetime.now().isoformat(),
                 "skill_triggered": skill_triggered,
-                "golden_output_source": golden_output_source
-            }
+                "golden_output_source": golden_output_source,
+            },
         }
 
         records.append(record)
@@ -660,41 +767,53 @@ def cmd_export(args):
 
     if args.format == "csv":
         # CSV format
-        with open(output_file, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=[
-                "id", "description", "user", "golden_tools", "golden_output",
-                "skill_triggered", "session_id", "extracted_at"
-            ])
+        with open(output_file, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "id",
+                    "description",
+                    "user",
+                    "golden_tools",
+                    "golden_output",
+                    "skill_triggered",
+                    "session_id",
+                    "extracted_at",
+                ],
+            )
             writer.writeheader()
 
             for record in records:
                 conv = record["conversation"][0]
                 tools_str = ", ".join(t["name"] for t in conv["golden_tool_sequence"])
-                writer.writerow({
-                    "id": record["id"],
-                    "description": record["description"],
-                    "user": conv["user"],
-                    "golden_tools": tools_str,
-                    "golden_output": conv["golden_output"][:200],
-                    "skill_triggered": record["metadata"]["skill_triggered"] or "",
-                    "session_id": record["metadata"]["session_id"],
-                    "extracted_at": record["metadata"]["extracted_at"]
-                })
+                writer.writerow(
+                    {
+                        "id": record["id"],
+                        "description": record["description"],
+                        "user": conv["user"],
+                        "golden_tools": tools_str,
+                        "golden_output": conv["golden_output"][:200],
+                        "skill_triggered": record["metadata"]["skill_triggered"] or "",
+                        "session_id": record["metadata"]["session_id"],
+                        "extracted_at": record["metadata"]["extracted_at"],
+                    }
+                )
 
         print(f"✓ Exported {len(records)}  CSV: {output_file}")
 
     else:
         # JSONL format
-        with open(output_file, 'w', encoding='utf-8') as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             for record in records:
-                f.write(json.dumps(record, ensure_ascii=False) + '\n')
-        
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
         print(f"✓ Exported {len(records)}  JSONL: {output_file}")
 
 
 # ============================================================================
 # Main entry
 # ============================================================================
+
 
 def cmd_edd(args):
     """EDD command dispatch"""
@@ -713,8 +832,9 @@ def cmd_edd(args):
 
 
 # ============================================================================
-# judge 
+# judge
 # ============================================================================
+
 
 def cmd_judge(args):
     """Judge command entry - LLM scoring"""
@@ -725,15 +845,16 @@ def cmd_judge(args):
         print(f"✗ Report file not found: {args.report}")
         sys.exit(1)
 
-    with open(report_path, 'r', encoding='utf-8') as f:
+    with open(report_path, "r", encoding="utf-8") as f:
         results = json.load(f)
 
     #  LLM client
-    provider = getattr(args, 'provider', 'anthropic')
+    provider = getattr(args, "provider", "anthropic")
 
     if provider == "anthropic":
         try:
             from anthropic import Anthropic
+
             api_key = os.environ.get("ANTHROPIC_API_KEY")
             if not api_key:
                 print("✗ ANTHROPIC_API_KEY not set")
@@ -746,6 +867,7 @@ def cmd_judge(args):
     elif provider == "openai":
         try:
             from openai import OpenAI
+
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
                 print("✗ OPENAI_API_KEY not set")
@@ -758,6 +880,7 @@ def cmd_judge(args):
     elif provider == "deepseek":
         try:
             from openai import OpenAI
+
             api_key = os.environ.get("DEEPSEEK_API_KEY")
             if not api_key:
                 print("✗ DEEPSEEK_API_KEY not set")
@@ -817,24 +940,21 @@ Return JSON:
                 response = client.messages.create(
                     model=args.model,
                     max_tokens=1024,
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ]
+                    messages=[{"role": "user", "content": prompt}],
                 )
                 response_text = response.content[0].text
             else:  # openai or deepseek
                 response = client.chat.completions.create(
                     model=args.model,
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ],
-                    max_tokens=1024
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1024,
                 )
                 response_text = response.choices[0].message.content
 
             #  JSON
             import re
-            json_match = re.search(r'\{[^}]+\}', response_text, re.DOTALL)
+
+            json_match = re.search(r"\{[^}]+\}", response_text, re.DOTALL)
             if json_match:
                 judgment = json.loads(json_match.group(0))
             else:
@@ -846,7 +966,7 @@ Return JSON:
                 **judgment,
                 "model": args.model,
                 "provider": provider,
-                "raw_response": response_text
+                "raw_response": response_text,
             }
             judged_results.append(result_copy)
 
@@ -863,21 +983,35 @@ Return JSON:
     print("📊 Evaluating")
     print("─" * 60)
 
-    valid_judgments = [r for r in judged_results if "llm_judgment" in r and "overall_score" in r["llm_judgment"]]
+    valid_judgments = [
+        r
+        for r in judged_results
+        if "llm_judgment" in r and "overall_score" in r["llm_judgment"]
+    ]
     if valid_judgments:
-        avg_overall = sum(r["llm_judgment"]["overall_score"] for r in valid_judgments) / len(valid_judgments)
-        avg_tool_selection = sum(r["llm_judgment"]["tool_selection_score"] for r in valid_judgments) / len(valid_judgments)
-        avg_tool_order = sum(r["llm_judgment"]["tool_order_score"] for r in valid_judgments) / len(valid_judgments)
-        avg_output_quality = sum(r["llm_judgment"]["output_quality_score"] for r in valid_judgments) / len(valid_judgments)
+        avg_overall = sum(
+            r["llm_judgment"]["overall_score"] for r in valid_judgments
+        ) / len(valid_judgments)
+        avg_tool_selection = sum(
+            r["llm_judgment"]["tool_selection_score"] for r in valid_judgments
+        ) / len(valid_judgments)
+        avg_tool_order = sum(
+            r["llm_judgment"]["tool_order_score"] for r in valid_judgments
+        ) / len(valid_judgments)
+        avg_output_quality = sum(
+            r["llm_judgment"]["output_quality_score"] for r in valid_judgments
+        ) / len(valid_judgments)
 
         print(f"Overall score: {avg_overall:.1f}/10")
         print(f"Average tool selection: {avg_tool_selection:.1f}/10")
         print(f"Average tool order: {avg_tool_order:.1f}/10")
         print(f"Output: {avg_output_quality:.1f}/10")
 
-    # 
-    output_path = Path(args.output) if args.output else report_path.with_suffix('.judged.json')
-    with open(output_path, 'w', encoding='utf-8') as f:
+    #
+    output_path = (
+        Path(args.output) if args.output else report_path.with_suffix(".judged.json")
+    )
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(judged_results, f, indent=2, ensure_ascii=False)
 
     print(f"\n✓ Evaluating: {output_path}")

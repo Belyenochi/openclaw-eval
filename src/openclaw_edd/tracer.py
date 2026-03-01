@@ -14,7 +14,7 @@ from typing import Generator, Optional
 from .models import Event
 
 # ============================================================================
-# 
+#
 # ============================================================================
 
 LOG_DIR = Path("/tmp/openclaw")
@@ -22,7 +22,13 @@ LOG_GLOB = "openclaw-*.log"
 
 TOOL_START_MSGS = {"embedded run tool start", "tool_start", "run tool start"}
 TOOL_END_MSGS = {"embedded run tool end", "tool_end", "run tool end"}
-TURN_END_MSGS = {"run finished", "agent done", "run complete", "turn end", "response sent"}
+TURN_END_MSGS = {
+    "run finished",
+    "agent done",
+    "run complete",
+    "turn end",
+    "response sent",
+}
 
 # （， JSON ）
 TOOL_START_RE = re.compile(
@@ -34,13 +40,14 @@ TOOL_END_RE = re.compile(
     r'|"event"\s*:\s*"agent\.run\.tool_end"'
 )
 
-# ANSI 
-ANSI_RE = re.compile(r'\x1b\[[0-9;]*m')
+# ANSI
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 # ============================================================================
-# 
+#
 # ============================================================================
+
 
 def parse_line(line: str) -> Optional[dict]:
     """
@@ -51,12 +58,12 @@ def parse_line(line: str) -> Optional[dict]:
     2. _meta （Gateway）：{"_meta": {...}, "1": "embedded run tool start: ..."}
 
     Args:
-        line: 
+        line:
 
     Returns:
          dict（）， None
     """
-    line = ANSI_RE.sub('', line.strip())
+    line = ANSI_RE.sub("", line.strip())
     if not line:
         return None
 
@@ -68,36 +75,39 @@ def parse_line(line: str) -> Optional[dict]:
             return entry
 
         #  2：_meta （）
-        #  "1" 
+        #  "1"
         msg_text = entry.get("1", "")
         if not msg_text:
             return None
 
-        # 
+        #
         parsed = {}
 
         #  sessionId
         if "sessionId=" in msg_text:
             import re
-            match = re.search(r'sessionId=([a-f0-9\-]+)', msg_text)
+
+            match = re.search(r"sessionId=([a-f0-9\-]+)", msg_text)
             if match:
                 parsed["session_id"] = match.group(1)
 
         #  runId（）
         if "runId=" in msg_text and "session_id" not in parsed:
             import re
-            match = re.search(r'runId=([a-f0-9\-]+)', msg_text)
+
+            match = re.search(r"runId=([a-f0-9\-]+)", msg_text)
             if match:
                 parsed["session_id"] = match.group(1)
 
         #  tool
         if "tool=" in msg_text:
             import re
-            match = re.search(r'tool=(\w+)', msg_text)
+
+            match = re.search(r"tool=(\w+)", msg_text)
             if match:
                 parsed["tool"] = match.group(1)
 
-        #  msg 
+        #  msg
         if "embedded run tool start" in msg_text:
             parsed["msg"] = "embedded run tool start"
         elif "embedded run tool end" in msg_text:
@@ -109,13 +119,13 @@ def parse_line(line: str) -> Optional[dict]:
         elif "response sent" in msg_text:
             parsed["msg"] = "response sent"
 
-        # 
+        #
         if "time" in entry:
             parsed["ts"] = entry["time"]
         elif "_meta" in entry and "date" in entry["_meta"]:
             parsed["ts"] = entry["_meta"]["date"]
 
-        #  session_id 
+        #  session_id
         if "session_id" in parsed:
             return parsed
 
@@ -130,11 +140,11 @@ def read_all_logs(log_dir: Path = LOG_DIR, max_file_size_mb: int = 100) -> list[
      openclaw-*.log，
 
     Args:
-        log_dir: 
+        log_dir:
         max_file_size_mb: （MB），
 
     Returns:
-         dict 
+         dict
     """
     if not log_dir.exists():
         return []
@@ -147,11 +157,13 @@ def read_all_logs(log_dir: Path = LOG_DIR, max_file_size_mb: int = 100) -> list[
         try:
             file_size = log_file.stat().st_size
             if file_size > max_bytes:
-                print(f"⚠ : {log_file.name} ({file_size / 1024 / 1024:.1f}MB > {max_file_size_mb}MB)")
+                print(
+                    f"⚠ : {log_file.name} ({file_size / 1024 / 1024:.1f}MB > {max_file_size_mb}MB)"
+                )
                 print(f"  :  --session  trace  session")
                 continue
 
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 for line in f:
                     entry = parse_line(line)
                     if entry:
@@ -167,11 +179,11 @@ def read_logs_for_session(log_dir: Path, session_id: str) -> list[dict]:
      session （）
 
     Args:
-        log_dir: 
-        session_id: Session ID 
+        log_dir:
+        session_id: Session ID
 
     Returns:
-         session 
+         session
     """
     if not log_dir.exists():
         return []
@@ -181,7 +193,7 @@ def read_logs_for_session(log_dir: Path, session_id: str) -> list[dict]:
 
     for log_file in log_files:
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 for line in f:
                     entry = parse_line(line)
                     if entry and entry.get("session_id", "").startswith(session_id):
@@ -193,21 +205,21 @@ def read_logs_for_session(log_dir: Path, session_id: str) -> list[dict]:
 
 
 def _is_tool_start(entry: dict) -> bool:
-    """ tool_start """
+    """tool_start"""
     msg = entry.get("msg", "")
     event = entry.get("event", "")
     return msg in TOOL_START_MSGS or event == "agent.run.tool_start"
 
 
 def _is_tool_end(entry: dict) -> bool:
-    """ tool_end """
+    """tool_end"""
     msg = entry.get("msg", "")
     event = entry.get("event", "")
     return msg in TOOL_END_MSGS or event == "agent.run.tool_end"
 
 
 def _is_turn_end(entry: dict) -> bool:
-    """ turn """
+    """turn"""
     msg = entry.get("msg", "")
     return any(end_msg in msg for end_msg in TURN_END_MSGS)
 
@@ -233,7 +245,7 @@ def entry_to_event(entry: dict, raw_line: str = "") -> Optional[Event]:
             input=entry.get("input", {}),
             ts=ts,
             session_id=session_id,
-            raw=entry
+            raw=entry,
         )
 
     elif _is_tool_end(entry):
@@ -244,18 +256,20 @@ def entry_to_event(entry: dict, raw_line: str = "") -> Optional[Event]:
             duration_ms=entry.get("duration"),
             ts=ts,
             session_id=session_id,
-            raw=entry
+            raw=entry,
         )
 
     elif any(k in entry for k in ["response", "answer", "content"]):
-        response_text = entry.get("response") or entry.get("answer") or entry.get("content", "")
+        response_text = (
+            entry.get("response") or entry.get("answer") or entry.get("content", "")
+        )
         if response_text:
             return Event(
                 kind="llm_response",
                 output=str(response_text),
                 ts=ts,
                 session_id=session_id,
-                raw=entry
+                raw=entry,
             )
 
     return None
@@ -266,11 +280,11 @@ def extract_events(entries: list[dict], session_id: str = "") -> list[Event]:
     ， tool start/end
 
     Args:
-        entries: 
+        entries:
         session_id:  session （）
 
     Returns:
-        Event 
+        Event
     """
     events = []
     pending = {}  # tool_name -> start_entry
@@ -284,40 +298,48 @@ def extract_events(entries: list[dict], session_id: str = "") -> list[Event]:
 
         if _is_tool_start(entry):
             tool = entry.get("tool", "")
-            events.append(Event(
-                kind="tool_start",
-                tool=tool,
-                input=entry.get("input", {}),
-                ts=entry.get("ts", ""),
-                session_id=sid,
-                raw=entry
-            ))
+            events.append(
+                Event(
+                    kind="tool_start",
+                    tool=tool,
+                    input=entry.get("input", {}),
+                    ts=entry.get("ts", ""),
+                    session_id=sid,
+                    raw=entry,
+                )
+            )
             pending[tool] = entry
 
         elif _is_tool_end(entry):
             tool = entry.get("tool", "")
             start_entry = pending.pop(tool, {})
-            events.append(Event(
-                kind="tool_end",
-                tool=tool,
-                input=start_entry.get("input", {}),
-                output=entry.get("output", ""),
-                duration_ms=entry.get("duration"),
-                ts=entry.get("ts", ""),
-                session_id=sid,
-                raw=entry
-            ))
-
-        elif any(k in entry for k in ["response", "answer", "content"]):
-            response_text = entry.get("response") or entry.get("answer") or entry.get("content", "")
-            if response_text:
-                events.append(Event(
-                    kind="llm_response",
-                    output=str(response_text),
+            events.append(
+                Event(
+                    kind="tool_end",
+                    tool=tool,
+                    input=start_entry.get("input", {}),
+                    output=entry.get("output", ""),
+                    duration_ms=entry.get("duration"),
                     ts=entry.get("ts", ""),
                     session_id=sid,
-                    raw=entry
-                ))
+                    raw=entry,
+                )
+            )
+
+        elif any(k in entry for k in ["response", "answer", "content"]):
+            response_text = (
+                entry.get("response") or entry.get("answer") or entry.get("content", "")
+            )
+            if response_text:
+                events.append(
+                    Event(
+                        kind="llm_response",
+                        output=str(response_text),
+                        ts=entry.get("ts", ""),
+                        session_id=sid,
+                        raw=entry,
+                    )
+                )
 
     return events
 
@@ -327,28 +349,30 @@ def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
     ， session_id （）
 
     Args:
-        log_dir: 
+        log_dir:
 
     Returns:
-        Session ， last_ts 
+        Session ， last_ts
          dict ：session_id, first_ts, last_ts, tool_count, turns, agent
     """
     if not log_dir.exists():
         return []
 
     log_files = sorted(log_dir.glob(LOG_GLOB))
-    sessions = defaultdict(lambda: {
-        "session_id": "",
-        "first_ts": "",
-        "last_ts": "",
-        "tool_count": 0,
-        "turns": 0,
-        "agent": "",
-    })
+    sessions = defaultdict(
+        lambda: {
+            "session_id": "",
+            "first_ts": "",
+            "last_ts": "",
+            "tool_count": 0,
+            "turns": 0,
+            "agent": "",
+        }
+    )
 
     for log_file in log_files:
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 for line in f:
                     entry = parse_line(line)
                     if not entry:
@@ -379,24 +403,24 @@ def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
         except Exception as e:
             print(f"⚠ : {log_file} - {e}")
 
-    #  last_ts 
+    #  last_ts
     result = sorted(sessions.values(), key=lambda x: x["last_ts"], reverse=True)
     return result
 
 
 def tail_f(path: Path, from_end: bool = True) -> Generator[str, None, None]:
     """
-    
+
 
     Args:
-        path: 
+        path:
         from_end: （True ）
 
     Yields:
-        
+
     """
     if not path.exists():
-        # 
+        #
         try:
             while not path.exists():
                 time.sleep(0.5)
@@ -406,9 +430,9 @@ def tail_f(path: Path, from_end: bool = True) -> Generator[str, None, None]:
     current_inode = os.stat(path).st_ino
     current_date = date.today()
 
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         if from_end:
-            f.seek(0, 2)  # 
+            f.seek(0, 2)  #
 
         try:
             while True:
@@ -416,44 +440,47 @@ def tail_f(path: Path, from_end: bool = True) -> Generator[str, None, None]:
                 if line:
                     yield line
                 else:
-                    # 
+                    #
                     time.sleep(0.05)
 
-                    # 
+                    #
                     new_date = date.today()
                     if new_date != current_date:
-                        # 
-                        new_path = path.parent / f"openclaw-{new_date.strftime('%Y-%m-%d')}.log"
+                        #
+                        new_path = (
+                            path.parent
+                            / f"openclaw-{new_date.strftime('%Y-%m-%d')}.log"
+                        )
                         if new_path.exists():
                             path = new_path
                             current_date = new_date
                             current_inode = os.stat(path).st_ino
                             f.close()
-                            f = open(path, 'r', encoding='utf-8')
+                            f = open(path, "r", encoding="utf-8")
                             continue
 
-                    #  inode 
+                    #  inode
                     try:
                         new_inode = os.stat(path).st_ino
                         if new_inode != current_inode:
                             # ，
                             current_inode = new_inode
                             f.close()
-                            f = open(path, 'r', encoding='utf-8')
+                            f = open(path, "r", encoding="utf-8")
                     except FileNotFoundError:
                         # ，
                         time.sleep(0.5)
                         if path.exists():
                             current_inode = os.stat(path).st_ino
                             f.close()
-                            f = open(path, 'r', encoding='utf-8')
+                            f = open(path, "r", encoding="utf-8")
         except KeyboardInterrupt:
             return
 
 
 def get_workspace(override: str = "") -> Path:
     """
-    Workspace 
+    Workspace
 
     ：
     1. override （）
@@ -461,21 +488,23 @@ def get_workspace(override: str = "") -> Path:
     3. fallback: ~/.openclaw/workspace
 
     Args:
-        override: 
+        override:
 
     Returns:
-        Workspace 
+        Workspace
     """
     if override:
         return Path(override).expanduser()
 
-    # 
+    #
     config_file = Path.home() / ".openclaw" / "openclaw.json"
     if config_file.exists():
         try:
-            with open(config_file, 'r', encoding='utf-8') as f:
+            with open(config_file, "r", encoding="utf-8") as f:
                 config = json.load(f)
-                workspace = config.get("agents", {}).get("defaults", {}).get("workspace")
+                workspace = (
+                    config.get("agents", {}).get("defaults", {}).get("workspace")
+                )
                 if workspace:
                     return Path(workspace).expanduser()
         except Exception:

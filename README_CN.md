@@ -4,6 +4,7 @@
 
 
 [English Documentation](README.md)
+完整使用指南（中文）：[USER_JOURNEY_CN.md](./USER_JOURNEY_CN.md)
 零摩擦 EDD 工具包，不侵入 OpenClaw 本体，唯一数据源是日志文件。
 
 ## 特性

@@ -34,3 +34,4 @@ Thumbs.db
 *.idx
 report_*.json
 *.log
+.claude/

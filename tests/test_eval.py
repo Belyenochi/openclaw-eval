@@ -12,29 +12,33 @@ def _ev(tool, command, ts):
         output="",
         duration_ms=1,
         ts=ts,
-        session_id="s"
+        session_id="s",
     )
 
 
 def test_expect_commands_matching():
     events = [
-        _ev("exec", "curl -s https://example.com/weather?city=Tokyo", "2026-03-01T01:00:00Z")
+        _ev(
+            "exec",
+            "curl -s https://example.com/weather?city=Tokyo",
+            "2026-03-01T01:00:00Z",
+        )
     ]
     case = EvalCase(
         id="cmd_match",
         message="",
         expect_commands=["curl", "tokyo"],
     )
-    passed, failures, checks = eval_module.check_assertions(case, events, "Tokyo weather")
+    passed, failures, checks = eval_module.check_assertions(
+        case, events, "Tokyo weather"
+    )
     assert passed
     assert failures == []
     assert checks["commands"]["passed"] is True
 
 
 def test_forbidden_commands():
-    events = [
-        _ev("exec", "rm -rf /", "2026-03-01T01:00:00Z")
-    ]
+    events = [_ev("exec", "rm -rf /", "2026-03-01T01:00:00Z")]
     case = EvalCase(
         id="forbid",
         message="",
@@ -63,7 +67,11 @@ def test_commands_ordered():
 
 def test_expect_tool_args_substring():
     events = [
-        _ev("exec", "bash ./skills/ceresdb/scripts/check_health.sh prod-01", "2026-03-01T01:00:00Z")
+        _ev(
+            "exec",
+            "bash ./skills/ceresdb/scripts/check_health.sh prod-01",
+            "2026-03-01T01:00:00Z",
+        )
     ]
     case = EvalCase(
         id="tool_args",

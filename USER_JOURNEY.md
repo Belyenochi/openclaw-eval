@@ -34,9 +34,9 @@ python3 -m json.tool round1.json
 openclaw-edd edd suggest --report round1.json  # needs ANTHROPIC_API_KEY
 ```
 Common failure reasons:
-- "缺少必要工具调用" → `expect_tools` wrong or agent used a different approach
-- "输出不包含预期内容" → wording mismatch (adjust keywords)
-- "调用了禁止的工具" → safety concern
+- "Missing required tool calls" → `expect_tools` wrong or agent used a different approach
+- "Output missing expected keywords" → wording mismatch (adjust keywords)
+- "Forbidden tool was called" → safety concern
 
 ## Step 4: Fix Agent and Re-run (5 min)
 ```bash

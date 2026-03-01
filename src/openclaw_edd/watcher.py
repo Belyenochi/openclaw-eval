@@ -11,10 +11,10 @@ from pathlib import Path
 
 from . import tracer, store, session_reader
 
+# ============================================================================
+#
+# ============================================================================
 
-# ============================================================================
-# 
-# ============================================================================
 
 def _cols() -> int:
     """， 100"""
@@ -25,7 +25,7 @@ def _cols() -> int:
 
 
 def _bar(duration_ms: int, max_ms: int, width: int = 16) -> str:
-    """， max_ms """
+    """， max_ms"""
     if max_ms <= 0 or duration_ms <= 0:
         return "░" * width
     ratio = min(duration_ms / max_ms, 1.0)
@@ -44,7 +44,7 @@ def _truncate(text: str, maxlen: int) -> str:
     """"""
     text = str(text).strip()
     if len(text) > maxlen:
-        return text[:maxlen - 3] + "..."
+        return text[: maxlen - 3] + "..."
     return text
 
 
@@ -52,20 +52,21 @@ def _extract_args_summary(arguments: dict) -> str:
     """"""
     if not arguments:
         return ""
-    #  command/query/path/message 
+    #  command/query/path/message
     for key in ("command", "query", "path", "message", "text", "content"):
         if key in arguments:
             return str(arguments[key])
-    #  JSON 
+    #  JSON
     return json.dumps(arguments, ensure_ascii=False)
 
 
 # ============================================================================
-# Invocation 
+# Invocation
 # ============================================================================
 
+
 def _render_invocation(session_id: str, invocation: dict) -> None:
-    """ invocation（ +  + ）"""
+    """invocation（ +  + ）"""
     cols = _cols()
 
     user_text = invocation.get("user_text", "")
@@ -85,6 +86,7 @@ def _render_invocation(session_id: str, invocation: dict) -> None:
     if start_ts:
         try:
             from datetime import datetime, timezone
+
             dt = datetime.fromisoformat(start_ts.replace("Z", "+00:00"))
             dt_local = dt.astimezone()
             time_str = dt_local.strftime("%H:%M:%S")
@@ -96,7 +98,7 @@ def _render_invocation(session_id: str, invocation: dict) -> None:
     right_dashes = "─" * max(0, cols - len(left_dashes) - len(header_mid))
     print(f"{left_dashes}{header_mid}{right_dashes}")
 
-    # invocation ： + 
+    # invocation ： +
     user_display = _truncate(user_text, 60) if user_text else "(system)"
     total_str = _fmt_ms(total_ms) if total_ms > 0 else ""
     inv_line = f'invocation  "{user_display}"'
@@ -125,7 +127,7 @@ def _render_invocation(session_id: str, invocation: dict) -> None:
             # call_llm （）
             print("       call_llm")
 
-            # execute_tool 
+            # execute_tool
             tool_label = f"       └─ execute_tool  {tool}"
             if status == "running":
                 # ⚠️ （2），
@@ -162,7 +164,7 @@ def _render_invocation(session_id: str, invocation: dict) -> None:
                 lines = reply_text.split("\n")
                 display_lines = []
                 char_count = 0
-                for i, line in enumerate(lines[:5]):  #  5 
+                for i, line in enumerate(lines[:5]):  #  5
                     if char_count + len(line) > 200:
                         #  200 ， ...
                         remaining = 200 - char_count
@@ -171,7 +173,7 @@ def _render_invocation(session_id: str, invocation: dict) -> None:
                         break
                     display_lines.append(line)
                     char_count += len(line)
-                    if i >= 2:  #  3 
+                    if i >= 2:  #  3
                         if i < len(lines) - 1:
                             display_lines.append("...")
                         break
@@ -198,27 +200,31 @@ def _render_invocation(session_id: str, invocation: dict) -> None:
 
 
 # ============================================================================
-# 
+#
 # ============================================================================
 
+
 def _find_latest_log(log_dir: Path) -> Path:
-    """，fallback """
-    logs = sorted(log_dir.glob("openclaw-*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    """，fallback"""
+    logs = sorted(
+        log_dir.glob("openclaw-*.log"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
     if logs:
         return logs[0]
     return log_dir / f"openclaw-{date.today().strftime('%Y-%m-%d')}.log"
 
 
 # ============================================================================
-# Session 
+# Session
 # ============================================================================
+
 
 def _watch_session_files(args, running):
     """
-     session （）
+    session （）
 
-     session ， input/output
-     invocation ： invocation 
+    session ， input/output
+    invocation ： invocation
     """
     from datetime import datetime
 
@@ -237,7 +243,7 @@ def _watch_session_files(args, running):
     #  session （）
     file_positions = {}
 
-    #  session  invocation 
+    #  session  invocation
     # session_id -> {user_text, start_ts, start_wall_ms, events, pending_tool_call}
     invocation_buffers = {}
 
@@ -245,8 +251,12 @@ def _watch_session_files(args, running):
         import time
 
         while running[0]:
-            #  session 
-            session_files = sorted(sessions_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+            #  session
+            session_files = sorted(
+                sessions_dir.glob("*.jsonl"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
 
             for session_file in session_files[:10]:  #  10  session
                 session_id = session_file.stem
@@ -255,9 +265,9 @@ def _watch_session_files(args, running):
                 if args.session and not session_id.startswith(args.session):
                     continue
 
-                # 
+                #
                 try:
-                    with open(session_file, 'r', encoding='utf-8') as f:
+                    with open(session_file, "r", encoding="utf-8") as f:
                         # ：，
                         if not args.from_start:
                             if session_file in file_positions:
@@ -276,26 +286,25 @@ def _watch_session_files(args, running):
                                 message = json.loads(line)
                                 message_id = message.get("id")
 
-                                # 
+                                #
                                 if message_id in processed_messages:
                                     continue
                                 processed_messages.add(message_id)
 
                                 _process_message(
-                                    message, session_id, args,
-                                    invocation_buffers
+                                    message, session_id, args, invocation_buffers
                                 )
 
                             except json.JSONDecodeError:
                                 continue
 
-                        # 
+                        #
                         file_positions[session_file] = f.tell()
 
                 except FileNotFoundError:
                     continue
 
-            time.sleep(0.1)  # 
+            time.sleep(0.1)  #
 
     except KeyboardInterrupt:
         pass
@@ -303,7 +312,9 @@ def _watch_session_files(args, running):
     print("\n✓ Watch ")
 
 
-def _process_message(message: dict, session_id: str, args, invocation_buffers: dict) -> None:
+def _process_message(
+    message: dict, session_id: str, args, invocation_buffers: dict
+) -> None:
     """， invocation ，"""
     import time
 
@@ -320,13 +331,14 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
         for item in msg.get("content", []):
             if item.get("type") == "text":
                 import re
+
                 raw = item.get("text", "")
-                #  [message_id: xxx] 
-                raw = re.sub(r'\[message_id:[^\]]*\]', '', raw).strip()
+                #  [message_id: xxx]
+                raw = re.sub(r"\[message_id:[^\]]*\]", "", raw).strip()
                 #  System: [...] （OpenClaw ）
-                raw = re.sub(r'^System:.*?\n\n', '', raw, flags=re.DOTALL).strip()
+                raw = re.sub(r"^System:.*?\n\n", "", raw, flags=re.DOTALL).strip()
                 #  [Sun 2026-03-01 02:41 GMT+8]
-                raw = re.sub(r'^\[.*?GMT[+-]\d+\]\s*', '', raw).strip()
+                raw = re.sub(r"^\[.*?GMT[+-]\d+\]\s*", "", raw).strip()
                 user_text = raw.strip()
                 break
 
@@ -370,19 +382,24 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
                 #  LLM （ start_ts ，）
                 llm_dur = 0
 
-                buf["events"].append({
-                    "type": "llm_response",
-                    "reply_text": reply_text,
-                    "usage": usage,
-                    "duration_ms": llm_dur,
-                })
+                buf["events"].append(
+                    {
+                        "type": "llm_response",
+                        "reply_text": reply_text,
+                        "usage": usage,
+                        "duration_ms": llm_dur,
+                    }
+                )
 
-                # 
+                #
                 total_ms = 0
                 if buf.get("start_ts"):
                     try:
                         from datetime import datetime, timezone
-                        t0 = datetime.fromisoformat(buf["start_ts"].replace("Z", "+00:00"))
+
+                        t0 = datetime.fromisoformat(
+                            buf["start_ts"].replace("Z", "+00:00")
+                        )
                         t1 = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                         total_ms = int((t1 - t0).total_seconds() * 1000)
                     except Exception:
@@ -390,7 +407,7 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
 
                 buf["total_ms"] = total_ms
 
-                # 
+                #
                 _render_invocation(session_id, buf)
                 del invocation_buffers[session_id]
                 return
@@ -402,7 +419,7 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
         status = details.get("status", "")
         duration_ms = details.get("durationMs") or 0
 
-        # 
+        #
         out_text = ""
         for item in msg.get("content", []):
             if item.get("type") == "text":
@@ -414,14 +431,16 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
         if status == "running":
             # ： events， running
             in_text = pending.get("in_text", "") if pending else ""
-            buf["events"].append({
-                "type": "tool",
-                "tool": tool_name,
-                "in_text": in_text,
-                "out_text": out_text,  #  "Command still running ..."
-                "duration_ms": 0,
-                "status": "running",
-            })
+            buf["events"].append(
+                {
+                    "type": "tool",
+                    "tool": tool_name,
+                    "in_text": in_text,
+                    "out_text": out_text,  #  "Command still running ..."
+                    "duration_ms": 0,
+                    "status": "running",
+                }
+            )
             #  pending_tool_call， completed
             return
 
@@ -433,23 +452,28 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
             if duration_ms == 0 and pending and pending.get("ts_start"):
                 try:
                     from datetime import datetime, timezone
-                    t0 = datetime.fromisoformat(pending["ts_start"].replace("Z", "+00:00"))
+
+                    t0 = datetime.fromisoformat(
+                        pending["ts_start"].replace("Z", "+00:00")
+                    )
                     t1 = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     duration_ms = int((t1 - t0).total_seconds() * 1000)
                 except Exception:
                     pass
 
-            buf["events"].append({
-                "type": "tool",
-                "tool": tool_name,
-                "in_text": in_text,
-                "out_text": out_text,
-                "duration_ms": duration_ms,
-                "status": status or "completed",
-            })
+            buf["events"].append(
+                {
+                    "type": "tool",
+                    "tool": tool_name,
+                    "in_text": in_text,
+                    "out_text": out_text,
+                    "duration_ms": duration_ms,
+                    "status": status or "completed",
+                }
+            )
 
             #  artifact（ --save-artifacts ）
-            if getattr(args, 'save_artifacts', False) and out_text:
+            if getattr(args, "save_artifacts", False) and out_text:
                 artifact_path = store.artifacts_save(session_id, tool_name, out_text)
                 if artifact_path:
                     pass  #  invocation ，
@@ -459,22 +483,23 @@ def _process_message(message: dict, session_id: str, args, invocation_buffers: d
 
 
 # ============================================================================
-# 
+#
 # ============================================================================
 
+
 def cmd_watch(args):
-    """Watch """
+    """Watch"""
 
     if args.daemon:
-        # Daemon 
+        # Daemon
         if sys.platform == "win32":
             print("✗ Daemon  Linux/macOS")
             sys.exit(1)
 
         pid = os.fork()
         if pid > 0:
-            # ： PID 
-            with open(args.pid_file, 'w') as f:
+            # ： PID
+            with open(args.pid_file, "w") as f:
                 f.write(str(pid))
             print(f"✓ Watch daemon  (PID: {pid})")
             print(f"  : {args.daemon_log}")

@@ -26,19 +26,19 @@ BUILTIN_CASES = [
         "id": "weather_shanghai",
         "message": "What's the weather in Shanghai today?",
         "expect_tools": ["get_weather"],
-        "description": "Weather query basic check"
+        "description": "Weather query basic check",
     },
     {
         "id": "mysql_slow_query",
         "message": "Any slow queries in MySQL recently?",
         "expect_tools": ["query_metrics"],
-        "description": "MySQL slow query check"
+        "description": "MySQL slow query check",
     },
     {
         "id": "no_tool_chitchat",
         "message": "Hello",
         "forbidden_tools": ["query_db", "execute_sql"],
-        "description": "Chat should not call tools"
+        "description": "Chat should not call tools",
     },
 ]
 
@@ -51,10 +51,10 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
     cases_path = Path(cases_file)
 
     # Support JSONL format (golden dataset)
-    if cases_path.suffix == '.jsonl':
+    if cases_path.suffix == ".jsonl":
         try:
             cases = []
-            with open(cases_path, 'r', encoding='utf-8') as f:
+            with open(cases_path, "r", encoding="utf-8") as f:
                 for line in f:
                     record = json.loads(line)
                     # Convert golden dataset format to EvalCase
@@ -73,7 +73,9 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
                                 case_data["expect_tools"].append(assertion["value"])
                             elif assertion["type"] == "tool_order":
                                 case_data["expect_tools_ordered"] = assertion["value"]
-                                case_data["expect_tools_ordered_strict"] = assertion.get("strict", False)
+                                case_data["expect_tools_ordered_strict"] = (
+                                    assertion.get("strict", False)
+                                )
                             elif assertion["type"] == "not_tool_called":
                                 if "forbidden_tools" not in case_data:
                                     case_data["forbidden_tools"] = []
@@ -81,22 +83,30 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
                             elif assertion["type"] == "contains":
                                 if "expect_output_contains" not in case_data:
                                     case_data["expect_output_contains"] = []
-                                case_data["expect_output_contains"].append(assertion["value"])
+                                case_data["expect_output_contains"].append(
+                                    assertion["value"]
+                                )
                             elif assertion["type"] == "command_contains":
                                 if "expect_commands" not in case_data:
                                     case_data["expect_commands"] = []
                                 case_data["expect_commands"].append(assertion["value"])
                             elif assertion["type"] == "command_order":
-                                case_data["expect_commands_ordered"] = assertion["value"]
+                                case_data["expect_commands_ordered"] = assertion[
+                                    "value"
+                                ]
                             elif assertion["type"] == "not_command_contains":
                                 if "forbidden_commands" not in case_data:
                                     case_data["forbidden_commands"] = []
-                                case_data["forbidden_commands"].append(assertion["value"])
+                                case_data["forbidden_commands"].append(
+                                    assertion["value"]
+                                )
                             elif assertion["type"] == "tool_args":
                                 if "expect_tool_args" not in case_data:
                                     case_data["expect_tool_args"] = {}
                                 tool_name = assertion["tool"]
-                                case_data["expect_tool_args"][tool_name] = assertion["args"]
+                                case_data["expect_tool_args"][tool_name] = assertion[
+                                    "args"
+                                ]
 
                         cases.append(EvalCase(**case_data))
             return cases
@@ -104,20 +114,21 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
             print(f"✗ Failed to load JSONL cases: {e}")
             sys.exit(1)
 
-    # JSON 
-    if cases_path.suffix == '.json':
+    # JSON
+    if cases_path.suffix == ".json":
         try:
-            with open(cases_file, 'r', encoding='utf-8') as f:
+            with open(cases_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             return [EvalCase(**c) for c in data.get("cases", [])]
         except Exception as e:
             print(f"✗ Failed to load JSON cases: {e}")
             sys.exit(1)
 
-    # YAML 
+    # YAML
     try:
         import yaml
-        with open(cases_file, 'r', encoding='utf-8') as f:
+
+        with open(cases_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return [EvalCase(**c) for c in data.get("cases", [])]
     except ImportError:
@@ -138,16 +149,13 @@ def send_message(agent: str, message: str, use_local: bool = False) -> str:
         # Increase timeout for OpenClaw processing
         timeout = 120 if use_local else 60
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
         # Check command execution
         if result.returncode != 0:
-            print(f"⚠ openclaw command returned non-zero exit code: {result.returncode}")
+            print(
+                f"⚠ openclaw command returned non-zero exit code: {result.returncode}"
+            )
             if result.stderr:
                 print(f"   Error: {result.stderr[:200]}")
             return None
@@ -156,7 +164,12 @@ def send_message(agent: str, message: str, use_local: bool = False) -> str:
         try:
             data = json.loads(result.stdout)
             # Gateway mode: result.meta.agentMeta.sessionId
-            session_id = data.get("result", {}).get("meta", {}).get("agentMeta", {}).get("sessionId")
+            session_id = (
+                data.get("result", {})
+                .get("meta", {})
+                .get("agentMeta", {})
+                .get("sessionId")
+            )
             if session_id:
                 return session_id
             # Local mode: meta.agentMeta.sessionId
@@ -192,10 +205,16 @@ def wait_for_completion(session_id: str, timeout_s: int, log_dir: str) -> bool:
 
         try:
             result = subprocess.run(
-                ["openclaw", "logs", "--json", f"--session={session_id}", f"--since={elapsed}s"],
+                [
+                    "openclaw",
+                    "logs",
+                    "--json",
+                    f"--session={session_id}",
+                    f"--since={elapsed}s",
+                ],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
 
             lines = result.stdout.strip().splitlines()
@@ -203,6 +222,7 @@ def wait_for_completion(session_id: str, timeout_s: int, log_dir: str) -> bool:
             # Check completion marker
             for line in lines:
                 from .tracer import parse_line
+
                 entry = parse_line(line)
                 if entry and _is_turn_end(entry):
                     return True
@@ -259,7 +279,9 @@ def _check_commands(exec_commands: list[str], expect_commands: list[str]) -> dic
     }
 
 
-def _check_forbidden_commands(exec_commands: list[str], forbidden_commands: list[str]) -> dict:
+def _check_forbidden_commands(
+    exec_commands: list[str], forbidden_commands: list[str]
+) -> dict:
     violations = {}
     for pattern in forbidden_commands:
         if not isinstance(pattern, str):
@@ -274,7 +296,9 @@ def _check_forbidden_commands(exec_commands: list[str], forbidden_commands: list
     }
 
 
-def _check_commands_ordered(exec_commands: list[str], expect_ordered: list[str]) -> dict:
+def _check_commands_ordered(
+    exec_commands: list[str], expect_ordered: list[str]
+) -> dict:
     idx = 0
     for cmd in exec_commands:
         if idx < len(expect_ordered) and expect_ordered[idx].lower() in cmd.lower():
@@ -288,7 +312,9 @@ def _check_commands_ordered(exec_commands: list[str], expect_ordered: list[str])
     }
 
 
-def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> tuple[bool, list[str], dict]:
+def check_assertions(
+    case: EvalCase, events: list[Event], final_output: str
+) -> tuple[bool, list[str], dict]:
     """Check assertions"""
     failures: list[str] = []
     checks: dict = {}
@@ -298,7 +324,9 @@ def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> 
     if case.expect_tools:
         missing = set(case.expect_tools) - set(tool_names)
         if missing:
-            failures.append(f"Missing required tool calls: {', '.join(missing)}（: {tool_names}）")
+            failures.append(
+                f"Missing required tool calls: {', '.join(missing)}（: {tool_names}）"
+            )
         checks["tool_called"] = {
             "passed": len(missing) == 0,
             "expected": case.expect_tools,
@@ -311,12 +339,16 @@ def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> 
         if case.expect_tools_ordered_strict:
             # EXACT ：
             if tool_names != case.expect_tools_ordered:
-                failures.append(f"Tool order mismatch (strict):  {case.expect_tools_ordered}， {tool_names}")
+                failures.append(
+                    f"Tool order mismatch (strict):  {case.expect_tools_ordered}， {tool_names}"
+                )
         else:
             # IN_ORDER ：，
             it = iter(tool_names)
             if not all(tool in it for tool in case.expect_tools_ordered):
-                failures.append(f"Tool order mismatch:  {case.expect_tools_ordered}， {tool_names}")
+                failures.append(
+                    f"Tool order mismatch:  {case.expect_tools_ordered}， {tool_names}"
+                )
         checks["tool_ordered"] = {
             "passed": not any("Tool order mismatch" in f for f in failures),
             "expected": case.expect_tools_ordered,
@@ -348,10 +380,14 @@ def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> 
         forbid_check = _check_forbidden_commands(exec_commands, case.forbidden_commands)
         checks["forbidden_commands"] = forbid_check
         if not forbid_check["passed"]:
-            failures.append(f"Forbidden command keywords found: {', '.join(forbid_check['violations'].keys())}")
+            failures.append(
+                f"Forbidden command keywords found: {', '.join(forbid_check['violations'].keys())}"
+            )
 
     if case.expect_commands_ordered:
-        order_check = _check_commands_ordered(exec_commands, case.expect_commands_ordered)
+        order_check = _check_commands_ordered(
+            exec_commands, case.expect_commands_ordered
+        )
         checks["commands_ordered"] = order_check
         if not order_check["passed"]:
             failures.append(
@@ -361,9 +397,13 @@ def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> 
     # expect_output_contains
     if case.expect_output_contains:
         output_lower = final_output.lower()
-        missing_keywords = [kw for kw in case.expect_output_contains if kw.lower() not in output_lower]
+        missing_keywords = [
+            kw for kw in case.expect_output_contains if kw.lower() not in output_lower
+        ]
         if missing_keywords:
-            failures.append(f"Output missing expected keywords: {', '.join(missing_keywords)}")
+            failures.append(
+                f"Output missing expected keywords: {', '.join(missing_keywords)}"
+            )
         checks["output_contains"] = {
             "passed": len(missing_keywords) == 0,
             "expected": case.expect_output_contains,
@@ -376,9 +416,13 @@ def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> 
         tool_arg_passed = True
         for tool_name, expected_args in case.expect_tool_args.items():
             #  event
-            actual_events = [e for e in events if e.kind == "tool_end" and e.tool == tool_name]
+            actual_events = [
+                e for e in events if e.kind == "tool_end" and e.tool == tool_name
+            ]
             if not actual_events:
-                failures.append(f"Tool not called; cannot validate arguments: {tool_name}")
+                failures.append(
+                    f"Tool not called; cannot validate arguments: {tool_name}"
+                )
                 tool_arg_details[tool_name] = {"passed": False, "missing_tool": True}
                 tool_arg_passed = False
                 continue
@@ -386,7 +430,9 @@ def check_assertions(case: EvalCase, events: list[Event], final_output: str) -> 
             for key, expected_val in expected_args.items():
                 matched = False
                 for ev in actual_events:
-                    actual_val = ev.input.get(key) if isinstance(ev.input, dict) else None
+                    actual_val = (
+                        ev.input.get(key) if isinstance(ev.input, dict) else None
+                    )
                     if isinstance(expected_val, str):
                         if expected_val.lower() in str(actual_val).lower():
                             matched = True
@@ -429,7 +475,9 @@ def _parse_event_ts(ts: str) -> datetime | None:
         return None
 
 
-def _filter_events_by_time(events: list[Event], start_dt: datetime, end_dt: datetime) -> list[Event]:
+def _filter_events_by_time(
+    events: list[Event], start_dt: datetime, end_dt: datetime
+) -> list[Event]:
     if not start_dt or not end_dt:
         return events
     filtered: list[Event] = []
@@ -443,7 +491,13 @@ def _filter_events_by_time(events: list[Event], start_dt: datetime, end_dt: date
     return filtered
 
 
-def run_eval_case(case: EvalCase, dry_run: bool, log_dir: str, use_local: bool = False, session_id_override: str = None) -> EvalResult:
+def run_eval_case(
+    case: EvalCase,
+    dry_run: bool,
+    log_dir: str,
+    use_local: bool = False,
+    session_id_override: str = None,
+) -> EvalResult:
     """Run a single test case"""
     start_time = time.time()
     session_id = session_id_override  # Use provided session_id for dry-run testing
@@ -465,7 +519,7 @@ def run_eval_case(case: EvalCase, dry_run: bool, log_dir: str, use_local: bool =
                 duration_s=time.time() - start_time,
                 failures=["Failed to send message or get session_id"],
                 checks={},
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
 
         wait_for_completion(session_id, case.timeout_s, log_dir)
@@ -500,7 +554,7 @@ def run_eval_case(case: EvalCase, dry_run: bool, log_dir: str, use_local: bool =
         failures=failures,
         checks=checks,
         session_id=session_id,
-        timestamp=datetime.now().isoformat()
+        timestamp=datetime.now().isoformat(),
     )
 
 
@@ -522,16 +576,18 @@ def _events_from_state(state: dict, session_id: str) -> list[Event]:
             kind = "tool_end"
         if kind not in ("tool_start", "tool_end", "llm_response"):
             continue
-        events.append(Event(
-            kind=kind,
-            tool=item.get("tool", ""),
-            input=item.get("input", {}) or item.get("arguments", {}) or {},
-            output=item.get("output", "") or item.get("out_text", "") or "",
-            duration_ms=item.get("duration_ms") or item.get("durationMs"),
-            ts=item.get("ts") or item.get("timestamp", ""),
-            session_id=session_id,
-            raw=item
-        ))
+        events.append(
+            Event(
+                kind=kind,
+                tool=item.get("tool", ""),
+                input=item.get("input", {}) or item.get("arguments", {}) or {},
+                output=item.get("output", "") or item.get("out_text", "") or "",
+                duration_ms=item.get("duration_ms") or item.get("durationMs"),
+                ts=item.get("ts") or item.get("timestamp", ""),
+                session_id=session_id,
+                raw=item,
+            )
+        )
 
     return events
 
@@ -593,7 +649,9 @@ def generate_html_report(results: list[EvalResult], output_file: str):
             output_preview = result.final_output[:200]
             if len(result.final_output) > 200:
                 output_preview += "..."
-            html += f"        <p><strong>Output:</strong></p><pre>{output_preview}</pre>"
+            html += (
+                f"        <p><strong>Output:</strong></p><pre>{output_preview}</pre>"
+            )
 
         html += "    </div>"
 
@@ -602,7 +660,7 @@ def generate_html_report(results: list[EvalResult], output_file: str):
 </html>
 """
 
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html)
 
 
@@ -617,19 +675,25 @@ def cmd_run(args):
         sys.exit(1)
 
     if args.case:
-        cases = [EvalCase(
-            id="cli_case",
-            message=args.case,
-            expect_tools=args.expect_tools or [],
-            expect_commands=getattr(args, "expect_commands", None) or [],
-            expect_commands_ordered=getattr(args, "expect_commands_ordered", None) or [],
-            forbidden_tools=args.forbidden_tools or [],
-            forbidden_commands=getattr(args, "forbidden_commands", None) or [],
-            agent=args.agent
-        )]
+        cases = [
+            EvalCase(
+                id="cli_case",
+                message=args.case,
+                expect_tools=args.expect_tools or [],
+                expect_commands=getattr(args, "expect_commands", None) or [],
+                expect_commands_ordered=getattr(args, "expect_commands_ordered", None)
+                or [],
+                forbidden_tools=args.forbidden_tools or [],
+                forbidden_commands=getattr(args, "forbidden_commands", None) or [],
+                agent=args.agent,
+            )
+        ]
     elif getattr(args, "quickstart", False):
         from importlib import resources
-        quickstart_ref = resources.files("openclaw_edd").joinpath("quickstart_cases.json")
+
+        quickstart_ref = resources.files("openclaw_edd").joinpath(
+            "quickstart_cases.json"
+        )
         with resources.as_file(quickstart_ref) as quickstart_path:
             cases = load_cases(str(quickstart_path))
     else:
@@ -646,7 +710,7 @@ def cmd_run(args):
 
     print(f"⚡ OpenClaw Eval  —  {len(cases)} cases\n")
 
-    validation_only = args.dry_run and not getattr(args, 'session', None)
+    validation_only = args.dry_run and not getattr(args, "session", None)
     if validation_only:
         print("ℹ Dry-run  session，cases，Message\n")
 
@@ -664,15 +728,15 @@ def cmd_run(args):
                 failures=[],
                 checks={},
                 session_id=None,
-                timestamp=datetime.now().isoformat()
+                timestamp=datetime.now().isoformat(),
             )
         else:
             result = run_eval_case(
                 case,
                 args.dry_run,
                 args.log_dir,
-                getattr(args, 'local', False),
-                getattr(args, 'session', None)
+                getattr(args, "local", False),
+                getattr(args, "session", None),
             )
         results.append(result)
 
@@ -688,7 +752,7 @@ def cmd_run(args):
             print(f"  Tool chain: ()")
 
         #  trace（）
-        if getattr(args, 'show_trace', False) and result.events:
+        if getattr(args, "show_trace", False) and result.events:
             print(f"  \n  📋 Detailed trace:")
             for i, event in enumerate(result.events, 1):
                 if event.kind == "tool_start":
@@ -714,7 +778,7 @@ def cmd_run(args):
             print()
 
         # Output（ trace）
-        if not getattr(args, 'show_trace', False) and result.final_output:
+        if not getattr(args, "show_trace", False) and result.final_output:
             output_preview = result.final_output[:80]
             if len(result.final_output) > 80:
                 output_preview += "..."
@@ -730,7 +794,9 @@ def cmd_run(args):
     passed_count = sum(1 for r in results if r.passed)
     total_count = len(results)
     pass_rate = (passed_count / total_count * 100) if total_count > 0 else 0
-    avg_duration = sum(r.duration_s for r in results) / total_count if total_count > 0 else 0
+    avg_duration = (
+        sum(r.duration_s for r in results) / total_count if total_count > 0 else 0
+    )
 
     # Group stats by eval_type
     regression_results = [r for r in results if r.case.eval_type == "regression"]
@@ -774,12 +840,14 @@ def cmd_run(args):
     if failed_cases:
         print(f"Failed {len(failed_cases)} :")
         for r in failed_cases:
-            print(f"  - {r.case.id}: {r.failures[0] if r.failures else 'Unknown error'}")
+            print(
+                f"  - {r.case.id}: {r.failures[0] if r.failures else 'Unknown error'}"
+            )
 
     print(f"Duration: {avg_duration:.1f}s")
 
     # Baseline comparison
-    if getattr(args, 'baseline', None):
+    if getattr(args, "baseline", None):
         baseline_path = Path(args.baseline)
         if baseline_path.exists():
             print("\n" + "─" * 60)
@@ -787,23 +855,38 @@ def cmd_run(args):
             print("─" * 60)
 
             try:
-                with open(baseline_path, 'r', encoding='utf-8') as f:
+                with open(baseline_path, "r", encoding="utf-8") as f:
                     baseline_results = json.load(f)
 
-                #  baseline 
-                baseline_passed = sum(1 for r in baseline_results if r.get("passed", False))
+                #  baseline
+                baseline_passed = sum(
+                    1 for r in baseline_results if r.get("passed", False)
+                )
                 baseline_total = len(baseline_results)
-                baseline_rate = (baseline_passed / baseline_total * 100) if baseline_total > 0 else 0
-                baseline_avg = sum(r.get("duration_s", 0) for r in baseline_results) / baseline_total if baseline_total > 0 else 0
+                baseline_rate = (
+                    (baseline_passed / baseline_total * 100)
+                    if baseline_total > 0
+                    else 0
+                )
+                baseline_avg = (
+                    sum(r.get("duration_s", 0) for r in baseline_results)
+                    / baseline_total
+                    if baseline_total > 0
+                    else 0
+                )
 
-                # 
+                #
                 rate_delta = pass_rate - baseline_rate
                 time_delta = avg_duration - baseline_avg
 
-                print(f"Pass rate:  {baseline_rate:.0f}% → {pass_rate:.0f}%  ({rate_delta:+.0f}%)")
-                print(f"Duration:   {baseline_avg:.1f}s → {avg_duration:.1f}s  ({time_delta:+.1f}s)")
+                print(
+                    f"Pass rate:  {baseline_rate:.0f}% → {pass_rate:.0f}%  ({rate_delta:+.0f}%)"
+                )
+                print(
+                    f"Duration:   {baseline_avg:.1f}s → {avg_duration:.1f}s  ({time_delta:+.1f}s)"
+                )
 
-                #  case 
+                #  case
                 baseline_map = {r["case"]["id"]: r for r in baseline_results}
                 current_map = {r.case.id: r for r in results}
 
@@ -822,13 +905,19 @@ def cmd_run(args):
 
                         if baseline_status != current_status:
                             symbol = "✓" if current_status == "PASS" else "✗"
-                            print(f"  {symbol} {case_id}  {baseline_status} → {current_status}")
+                            print(
+                                f"  {symbol} {case_id}  {baseline_status} → {current_status}"
+                            )
 
                             # Tool chain
                             baseline_tools = baseline.get("tool_names", [])
-                            current_tools = [e.tool for e in current.events if e.kind == "tool_end"]
+                            current_tools = [
+                                e.tool for e in current.events if e.kind == "tool_end"
+                            ]
                             if baseline_tools != current_tools:
-                                print(f"     Tool chain: {baseline_tools} → {current_tools}")
+                                print(
+                                    f"     Tool chain: {baseline_tools} → {current_tools}"
+                                )
 
             except Exception as e:
                 print(f"⚠  baseline Failed: {e}")
@@ -837,7 +926,7 @@ def cmd_run(args):
 
     # Output
     if args.output_json:
-        with open(args.output_json, 'w', encoding='utf-8') as f:
+        with open(args.output_json, "w", encoding="utf-8") as f:
             json.dump([asdict(r) for r in results], f, indent=2, ensure_ascii=False)
         print(f"\n✓ JSON report saved: {args.output_json}")
 
@@ -914,7 +1003,7 @@ cases:
         print(f"✗ File already exists: {output_file}（ --force ）")
         sys.exit(1)
 
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(template)
 
     print(f"✓ cases: {output_file}")

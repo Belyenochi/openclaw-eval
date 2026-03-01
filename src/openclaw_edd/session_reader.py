@@ -9,7 +9,6 @@ from typing import Generator
 
 from .models import Event
 
-
 SESSION_DIR = Path.home() / ".openclaw" / "agents" / "main" / "sessions"
 
 
@@ -42,7 +41,9 @@ def read_session_messages(session_id: str) -> Generator[dict, None, None]:
                 continue
 
 
-def tail_session_file(session_id: str, from_end: bool = True) -> Generator[dict, None, None]:
+def tail_session_file(
+    session_id: str, from_end: bool = True
+) -> Generator[dict, None, None]:
     """Tail a session file and yield new messages.
 
     Args:
@@ -161,14 +162,22 @@ def build_events_from_session(session_id: str) -> list[Event]:
         event_type = info.get("event")
 
         if event_type == "tool_call":
-            tool_call_id = info.get("tool_call_id") or f"{info.get('tool','')}-{info.get('message_id','')}"
+            tool_call_id = (
+                info.get("tool_call_id")
+                or f"{info.get('tool','')}-{info.get('message_id','')}"
+            )
             pending_calls[tool_call_id] = info
             continue
 
         if event_type == "tool_result":
-            tool_call_id = info.get("tool_call_id") or f"{info.get('tool','')}-{info.get('message_id','')}"
+            tool_call_id = (
+                info.get("tool_call_id")
+                or f"{info.get('tool','')}-{info.get('message_id','')}"
+            )
             call_info = pending_calls.pop(tool_call_id, None)
-            ts = info.get("timestamp") or (call_info.get("timestamp") if call_info else "")
+            ts = info.get("timestamp") or (
+                call_info.get("timestamp") if call_info else ""
+            )
             events.append(
                 Event(
                     kind="tool_end",
