@@ -966,13 +966,22 @@ Return JSON:
         try:
             #  LLM API
             if client_type == "anthropic":
+                from anthropic.types import TextBlock
+
                 response = client.messages.create(
                     model=args.model,
                     max_tokens=1024,
                     messages=[{"role": "user", "content": prompt}],
                 )
-                response_text = response.content[0].text
+                block = response.content[0]
+                if isinstance(block, TextBlock):
+                    response_text = block.text
+                else:
+                    response_text = str(block)
             else:  # openai or deepseek
+                from openai import OpenAI
+
+                client = cast(OpenAI, client)
                 response = client.chat.completions.create(
                     model=args.model,
                     messages=[{"role": "user", "content": prompt}],
