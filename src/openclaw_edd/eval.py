@@ -15,13 +15,14 @@ import time
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Optional, cast
 
 from . import session_reader, store
 from .models import EvalCase, EvalResult, Event
 from .tracer import _is_turn_end
 
 # Built-in cases
-BUILTIN_CASES = [
+BUILTIN_CASES: list[dict[str, Any]] = [
     {
         "id": "weather_shanghai",
         "message": "What's the weather in Shanghai today?",
@@ -43,10 +44,10 @@ BUILTIN_CASES = [
 ]
 
 
-def load_cases(cases_file: str = None) -> list[EvalCase]:
-    """Load test cases"""
+def load_cases(cases_file: str | None = None) -> list[EvalCase]:
+    """Load test cases."""
     if not cases_file:
-        return [EvalCase(**c) for c in BUILTIN_CASES]
+        return [EvalCase(**cast(dict[str, Any], c)) for c in BUILTIN_CASES]
 
     cases_path = Path(cases_file)
 
@@ -108,7 +109,7 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
                                     "args"
                                 ]
 
-                        cases.append(EvalCase(**case_data))
+                        cases.append(EvalCase(**cast(dict[str, Any], case_data)))
             return cases
         except Exception as e:
             print(f"✗ Failed to load JSONL cases: {e}")
@@ -119,14 +120,14 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
         try:
             with open(cases_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return [EvalCase(**c) for c in data.get("cases", [])]
+            return [EvalCase(**cast(dict[str, Any], c)) for c in data.get("cases", [])]
         except Exception as e:
             print(f"✗ Failed to load JSON cases: {e}")
             sys.exit(1)
 
     # YAML
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         with open(cases_file, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
@@ -139,8 +140,8 @@ def load_cases(cases_file: str = None) -> list[EvalCase]:
         sys.exit(1)
 
 
-def send_message(agent: str, message: str, use_local: bool = False) -> str:
-    """Send a message to the agent and return session_id"""
+def send_message(agent: str, message: str, use_local: bool = False) -> str | None:
+    """Send a message to the agent and return session_id."""
     try:
         cmd = ["openclaw", "agent", f"--agent={agent}", "--json", "--message", message]
         if use_local:
@@ -170,11 +171,11 @@ def send_message(agent: str, message: str, use_local: bool = False) -> str:
                 .get("agentMeta", {})
                 .get("sessionId")
             )
-            if session_id:
+            if isinstance(session_id, str) and session_id:
                 return session_id
             # Local mode: meta.agentMeta.sessionId
             session_id = data.get("meta", {}).get("agentMeta", {}).get("sessionId")
-            if session_id:
+            if isinstance(session_id, str) and session_id:
                 return session_id
 
             # If missing, print debug info
@@ -187,7 +188,7 @@ def send_message(agent: str, message: str, use_local: bool = False) -> str:
 
         return None
     except subprocess.TimeoutExpired:
-        print(f"⚠ Send message timed out（{timeout}）")
+        print(f"⚠ Send message timed out ({timeout}s)")
         return None
     except Exception as e:
         print(f"⚠ Send message failed: {e}")
@@ -314,24 +315,24 @@ def _check_commands_ordered(
 
 def check_assertions(
     case: EvalCase, events: list[Event], final_output: str
-) -> tuple[bool, list[str], dict]:
-    """Check assertions"""
+) -> tuple[bool, list[str], dict[str, Any]]:
+    """Check assertions."""
     failures: list[str] = []
-    checks: dict = {}
+    checks: dict[str, Any] = {}
     tool_names = [e.tool for e in events if e.kind == "tool_end"]
 
     # expect_tools
     if case.expect_tools:
-        missing = set(case.expect_tools) - set(tool_names)
-        if missing:
+        missing_tools = set(case.expect_tools) - set(tool_names)
+        if missing_tools:
             failures.append(
-                f"Missing required tool calls: {', '.join(missing)}（: {tool_names}）"
+                f"Missing required tool calls: {', '.join(missing_tools)} (actual: {tool_names})"
             )
         checks["tool_called"] = {
-            "passed": len(missing) == 0,
+            "passed": len(missing_tools) == 0,
             "expected": case.expect_tools,
             "actual": tool_names,
-            "missing": sorted(missing),
+            "missing": sorted(missing_tools),
         }
 
     # expect_tools_ordered
@@ -373,8 +374,12 @@ def check_assertions(
         cmd_check = _check_commands(exec_commands, case.expect_commands)
         checks["commands"] = cmd_check
         if not cmd_check["passed"]:
-            missing = [k for k, v in cmd_check["details"].items() if not v["passed"]]
-            failures.append(f"Missing expected command keywords: {', '.join(missing)}")
+            missing_patterns = [
+                k for k, v in cmd_check["details"].items() if not v["passed"]
+            ]
+            failures.append(
+                f"Missing expected command keywords: {', '.join(missing_patterns)}"
+            )
 
     if case.forbidden_commands:
         forbid_check = _check_forbidden_commands(exec_commands, case.forbidden_commands)
@@ -412,7 +417,7 @@ def check_assertions(
 
     # expect_tool_args
     if case.expect_tool_args:
-        tool_arg_details = {}
+        tool_arg_details: dict[str, Any] = {}
         tool_arg_passed = True
         for tool_name, expected_args in case.expect_tool_args.items():
             #  event
@@ -496,7 +501,7 @@ def run_eval_case(
     dry_run: bool,
     log_dir: str,
     use_local: bool = False,
-    session_id_override: str = None,
+    session_id_override: str | None = None,
 ) -> EvalResult:
     """Run a single test case"""
     start_time = time.time()
@@ -592,8 +597,8 @@ def _events_from_state(state: dict, session_id: str) -> list[Event]:
     return events
 
 
-def generate_html_report(results: list[EvalResult], output_file: str):
-    """Generate HTML report"""
+def generate_html_report(results: list[EvalResult], output_file: str) -> None:
+    """Generate HTML report."""
     passed_count = sum(1 for r in results if r.passed)
     total_count = len(results)
     pass_rate = (passed_count / total_count * 100) if total_count > 0 else 0
@@ -664,8 +669,8 @@ def generate_html_report(results: list[EvalResult], output_file: str):
         f.write(html)
 
 
-def cmd_run(args):
-    """Run command entry"""
+def cmd_run(args: Any) -> None:
+    """Run command entry."""
     # Load cases
     if getattr(args, "quickstart", False) and args.cases:
         print("✗ --quickstart cannot be used with --cases")
@@ -943,8 +948,8 @@ def cmd_run(args):
         sys.exit(1)
 
 
-def cmd_gen_cases(args):
-    """gen-cases command entry"""
+def cmd_gen_cases(args: Any) -> None:
+    """gen-cases command entry."""
     template = """# OpenClaw EDD cases
 cases:
   - id: example_weather

@@ -340,7 +340,7 @@ def cmd_sessions(args: argparse.Namespace) -> None:
     import json
     from pathlib import Path
 
-    from .tracer import extract_events, read_logs_for_session, scan_sessions
+    from .tracer import extract_events, read_logs_for_session, sessions_from_logs
 
     log_dir = Path(args.log_dir)
 
@@ -355,7 +355,7 @@ def cmd_sessions(args: argparse.Namespace) -> None:
             print(f"Session {args.show} ({len(events)} events)")
         return
 
-    sessions = scan_sessions(log_dir)
+    sessions = sessions_from_logs(log_dir)
     for s in sessions[: args.limit]:
         print(
             f"{s['session_id'][:8]}  tools={s['tool_count']}  turns={s['turns']}  last={s['last_ts']}  agent={s.get('agent', '')}"

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import signal
 import sys
 from datetime import date
 from pathlib import Path
+from types import FrameType
 
 from . import session_reader, store, tracer
 
@@ -219,33 +221,28 @@ def _find_latest_log(log_dir: Path) -> Path:
 # ============================================================================
 
 
-def _watch_session_files(args, running):
-    """
-    session （）
-
-    session ， input/output
-    invocation ： invocation
-    """
+def _watch_session_files(args: argparse.Namespace, running: list[bool]) -> None:
+    """Watch session files and render invocations."""
     from datetime import datetime
 
     sessions_dir = Path.home() / ".openclaw" / "agents" / "main" / "sessions"
     if not sessions_dir.exists():
-        print(f"✗ Session : {sessions_dir}")
+        print(f"✗ Session directory not found: {sessions_dir}")
         return
 
-    print(f"👁   session : {sessions_dir}")
+    print(f"👁  Watching session files: {sessions_dir}")
     if args.session:
-        print(f"    session: {args.session}")
+        print(f"   Filter session: {args.session}")
 
     #  ID，
-    processed_messages = set()
+    processed_messages: set[str] = set()
 
     #  session （）
-    file_positions = {}
+    file_positions: dict[Path, int] = {}
 
     #  session  invocation
     # session_id -> {user_text, start_ts, start_wall_ms, events, pending_tool_call}
-    invocation_buffers = {}
+    invocation_buffers: dict[str, dict] = {}
 
     try:
         import time
@@ -304,18 +301,21 @@ def _watch_session_files(args, running):
                 except FileNotFoundError:
                     continue
 
-            time.sleep(0.1)  #
+            time.sleep(0.1)
 
     except KeyboardInterrupt:
         pass
 
-    print("\n✓ Watch ")
+    print("\n✓ Watch stopped")
 
 
 def _process_message(
-    message: dict, session_id: str, args, invocation_buffers: dict
+    message: dict,
+    session_id: str,
+    args: argparse.Namespace,
+    invocation_buffers: dict,
 ) -> None:
-    """， invocation ，"""
+    """Process a single message and update invocation buffers."""
     import time
 
     msg = message.get("message", {})
@@ -487,23 +487,23 @@ def _process_message(
 # ============================================================================
 
 
-def cmd_watch(args):
-    """Watch"""
+def cmd_watch(args: argparse.Namespace) -> None:
+    """Watch command entry."""
 
     if args.daemon:
         # Daemon
         if sys.platform == "win32":
-            print("✗ Daemon  Linux/macOS")
+            print("✗ Daemon mode only supports Linux/macOS")
             sys.exit(1)
 
         pid = os.fork()
         if pid > 0:
-            # ： PID
+            # Parent process: write PID file and exit
             with open(args.pid_file, "w") as f:
                 f.write(str(pid))
-            print(f"✓ Watch daemon  (PID: {pid})")
-            print(f"  : {args.daemon_log}")
-            print(f"  : kill $(cat {args.pid_file})")
+            print(f"✓ Watch daemon started (PID: {pid})")
+            print(f"  Log: {args.daemon_log}")
+            print(f"  Stop: kill $(cat {args.pid_file})")
             sys.exit(0)
 
         os.setsid()
@@ -512,7 +512,7 @@ def cmd_watch(args):
 
     running = [True]
 
-    def signal_handler(signum, frame):
+    def signal_handler(signum: int, frame: FrameType | None) -> None:
         """Handle termination signals for the watcher."""
         running[0] = False
 

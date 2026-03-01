@@ -9,7 +9,7 @@ import time
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Any, DefaultDict, Generator, Optional, TypedDict, cast
 
 from .models import Event
 
@@ -30,6 +30,17 @@ TURN_END_MSGS = {
     "response sent",
 }
 
+
+class SessionStats(TypedDict):
+    """Aggregate stats for a session."""
+
+    session_id: str
+    first_ts: str
+    last_ts: str
+    tool_count: int
+    turns: int
+    agent: str
+
 # （， JSON ）
 TOOL_START_RE = re.compile(
     r'"msg"\s*:\s*"(?:embedded run tool start|tool_start|run tool start)"'
@@ -49,39 +60,25 @@ ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 # ============================================================================
 
 
-def parse_line(line: str) -> Optional[dict]:
-    """
-     JSON， ANSI ，
-
-    ：
-    1. （）：{"msg": "...", "tool": "...", "session_id": "..."}
-    2. _meta （Gateway）：{"_meta": {...}, "1": "embedded run tool start: ..."}
-
-    Args:
-        line:
-
-    Returns:
-         dict（）， None
-    """
+def parse_line(line: str) -> Optional[dict[str, Any]]:
+    """Parse a single JSON log line into a normalized dict."""
     line = ANSI_RE.sub("", line.strip())
     if not line:
         return None
 
     try:
         entry = json.loads(line)
+        if not isinstance(entry, dict):
+            return None
 
-        #  1：（）
         if "_meta" not in entry:
-            return entry
+            return cast(dict[str, Any], entry)
 
-        #  2：_meta （）
-        #  "1"
         msg_text = entry.get("1", "")
         if not msg_text:
             return None
 
-        #
-        parsed = {}
+        parsed: dict[str, Any] = {}
 
         #  sessionId
         if "sessionId=" in msg_text:
@@ -119,13 +116,11 @@ def parse_line(line: str) -> Optional[dict]:
         elif "response sent" in msg_text:
             parsed["msg"] = "response sent"
 
-        #
         if "time" in entry:
             parsed["ts"] = entry["time"]
         elif "_meta" in entry and "date" in entry["_meta"]:
             parsed["ts"] = entry["_meta"]["date"]
 
-        #  session_id
         if "session_id" in parsed:
             return parsed
 
@@ -344,22 +339,13 @@ def extract_events(entries: list[dict], session_id: str = "") -> list[Event]:
     return events
 
 
-def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
-    """
-    ， session_id （）
-
-    Args:
-        log_dir:
-
-    Returns:
-        Session ， last_ts
-         dict ：session_id, first_ts, last_ts, tool_count, turns, agent
-    """
+def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[SessionStats]:
+    """Aggregate session stats from logs."""
     if not log_dir.exists():
         return []
 
     log_files = sorted(log_dir.glob(LOG_GLOB))
-    sessions = defaultdict(
+    sessions: DefaultDict[str, SessionStats] = defaultdict(
         lambda: {
             "session_id": "",
             "first_ts": "",
@@ -401,11 +387,9 @@ def sessions_from_logs(log_dir: Path = LOG_DIR) -> list[dict]:
                         session["agent"] = entry["agent"]
 
         except Exception as e:
-            print(f"⚠ : {log_file} - {e}")
+            print(f"⚠ Failed to process log file: {log_file} - {e}")
 
-    #  last_ts
-    result = sorted(sessions.values(), key=lambda x: x["last_ts"], reverse=True)
-    return result
+    return sorted(sessions.values(), key=lambda x: x["last_ts"], reverse=True)
 
 
 def tail_f(path: Path, from_end: bool = True) -> Generator[str, None, None]:

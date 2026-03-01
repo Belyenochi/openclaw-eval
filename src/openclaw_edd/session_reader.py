@@ -175,8 +175,9 @@ def build_events_from_session(session_id: str) -> list[Event]:
                 or f"{info.get('tool','')}-{info.get('message_id','')}"
             )
             call_info = pending_calls.pop(tool_call_id, None)
-            ts = info.get("timestamp") or (
-                call_info.get("timestamp") if call_info else ""
+            ts = str(
+                info.get("timestamp")
+                or (call_info.get("timestamp") if call_info else "")
             )
             events.append(
                 Event(

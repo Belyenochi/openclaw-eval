@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 EVAL_HOME = Path.home() / ".openclaw_eval"
 STATE_DIR = EVAL_HOME / "state"
@@ -28,7 +28,8 @@ def state_load(session_id: str) -> dict:
         return {}
     try:
         with open(state_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            return cast(dict[str, Any], data)
     except Exception:
         return {}
 

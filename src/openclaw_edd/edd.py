@@ -18,6 +18,7 @@ import sys
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import Any, DefaultDict, Optional, TypedDict, cast
 
 from .tracer import (
     _is_turn_end,
@@ -33,13 +34,12 @@ from .tracer import (
 
 
 def analyze_failure(result: dict, workspace: Path) -> dict:
-    """AnalyzeFailure reason，"""
+    """Analyze a failed result and propose fixes."""
     case_id = result["case"]["id"]
     message = result["case"]["message"]
     failures = result.get("failures", [])
-    tool_names = result.get("tool_names", [])
 
-    suggestion = {
+    suggestion: dict = {
         "case_id": case_id,
         "message": message,
         "failures": failures,
@@ -47,15 +47,16 @@ def analyze_failure(result: dict, workspace: Path) -> dict:
     }
 
     for failure in failures:
-        if "" in failure:
-            #
+        if "Missing required tool calls" in failure:
             import re
 
-            match = re.search(r"'(\w+)'", failure)
+            match = re.search(r"Missing required tool calls: ([^()]+)", failure)
             if match:
-                missing_tool = match.group(1)
+                missing_tools = [t.strip() for t in match.group(1).split(",")]
+                missing_tool = missing_tools[0] if missing_tools else ""
+                if not missing_tool:
+                    continue
 
-                #  skill
                 skills_dir = workspace / "skills"
                 skill_file = skills_dir / f"{missing_tool}.md"
 
@@ -64,7 +65,7 @@ def analyze_failure(result: dict, workspace: Path) -> dict:
                         {
                             "type": "modify_skill",
                             "file": f"skills/{missing_tool}.md",
-                            "action": f"Steps：{missing_tool}",
+                            "action": f"Add missing tool call steps: {missing_tool}",
                         }
                     )
                 else:
@@ -72,49 +73,56 @@ def analyze_failure(result: dict, workspace: Path) -> dict:
                         {
                             "type": "create_skill",
                             "file": f"skills/{case_id}.md",
-                            "action": f" skill，：{missing_tool}",
+                            "action": (
+                                f"Create a new skill that calls tool: {missing_tool}"
+                            ),
                         }
                     )
 
-        elif "" in failure:
-            suggestion["recommendations"].append(
-                {"type": "modify_skill", "file": f"skills/{case_id}.md", "action": ""}
-            )
-
-        elif "" in failure:
-            suggestion["recommendations"].append(
-                {"type": "modify_tools", "file": "TOOLS.md", "action": "Usage"}
-            )
-
-        elif "Output" in failure:
+        elif "Tool order mismatch" in failure:
             suggestion["recommendations"].append(
                 {
                     "type": "modify_skill",
                     "file": f"skills/{case_id}.md",
-                    "action": "Output format",
+                    "action": "Adjust tool call order",
                 }
             )
 
-        elif "" in failure:
-            #
+        elif "Forbidden tool was called" in failure:
+            suggestion["recommendations"].append(
+                {"type": "modify_tools", "file": "TOOLS.md", "action": "Add rule"}
+            )
+
+        elif "Output missing expected keywords" in failure:
+            suggestion["recommendations"].append(
+                {
+                    "type": "modify_skill",
+                    "file": f"skills/{case_id}.md",
+                    "action": "Specify output format requirements",
+                }
+            )
+
+        elif "Tool argument mismatch" in failure:
             import re
 
-            match = re.search(r": (\w+)\.(\w+) =(\S+) =(\S+)", failure)
+            match = re.search(r"Tool argument mismatch: (\\w+)\\.(\\w+) =(\\S+)", failure)
             if match:
-                tool_name, arg_key, expected, actual = match.groups()
+                tool_name, arg_key, expected = match.groups()
                 suggestion["recommendations"].append(
                     {
                         "type": "modify_skill",
                         "file": f"skills/{case_id}.md",
-                        "action": f" skill ：{tool_name}  {arg_key}={expected}",
+                        "action": (
+                            f"Clarify tool arguments: {tool_name} {arg_key}={expected}"
+                        ),
                     }
                 )
 
     return suggestion
 
 
-def cmd_suggest(args):
-    """Suggest command entry"""
+def cmd_suggest(args: Any) -> None:
+    """Suggest command entry."""
     if not Path(args.report).exists():
         print(f"✗ Report file not found: {args.report}")
         sys.exit(1)
@@ -154,8 +162,21 @@ def cmd_suggest(args):
 READONLY_FILES = {"SOUL.md", "AGENTS.md", "USER.md", "BOOTSTRAP.md", "IDENTITY.md"}
 
 
-def apply_suggestion(suggestion: dict, workspace: Path, auto_yes: bool = False):
-    """Apply a single suggestion"""
+class SessionStats(TypedDict):
+    """Aggregated session statistics."""
+
+    session_id: str
+    first_ts: str
+    last_ts: str
+    tool_count: int
+    turns: int
+    agent: str
+
+
+def apply_suggestion(
+    suggestion: dict, workspace: Path, auto_yes: bool = False
+) -> None:
+    """Apply a single suggestion."""
     for rec in suggestion["recommendations"]:
         file_path = workspace / rec["file"]
 
@@ -238,8 +259,8 @@ Return a natural-language response with relevant details
             print(f"✓ Updated: {file_path}")
 
 
-def cmd_apply(args):
-    """Apply"""
+def cmd_apply(args: Any) -> None:
+    """Apply command entry."""
     if not Path(args.suggestion_file).exists():
         print(f"✗ Suggested filedoes not exist: {args.suggestion_file}")
         sys.exit(1)
@@ -254,8 +275,8 @@ def cmd_apply(args):
 # ============================================================================
 
 
-def cmd_diff(args):
-    """Diff command entry"""
+def cmd_diff(args: Any) -> None:
+    """Diff command entry."""
     if not Path(args.before).exists() or not Path(args.after).exists():
         print("✗ Report file not found")
         sys.exit(1)
@@ -410,8 +431,8 @@ def cmd_diff(args):
 # ============================================================================
 
 
-def cmd_mine(args):
-    """Mine command entry"""
+def cmd_mine(args: Any) -> None:
+    """Mine command entry."""
     from .tracer import (
         LOG_DIR,
         extract_events,
@@ -446,7 +467,7 @@ def cmd_mine(args):
     output_file = Path(args.output) if args.output else Path("mined_cases.yaml")
     if output_file.exists():
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             with open(output_file, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
@@ -504,7 +525,7 @@ def cmd_mine(args):
     output_data = {"cases": new_cases}
 
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         with open(output_file, "w", encoding="utf-8") as f:
             yaml.dump(output_data, f, allow_unicode=True, default_flow_style=False)
@@ -519,8 +540,8 @@ def cmd_mine(args):
 # ============================================================================
 
 
-def cmd_export(args):
-    """Export command entry - export golden dataset"""
+def cmd_export(args: Any) -> None:
+    """Export command entry - export golden dataset."""
     from .tracer import LOG_DIR, _is_tool_end, _is_turn_end, read_all_logs
 
     log_dir = Path(args.log_dir) if args.log_dir else LOG_DIR
@@ -535,7 +556,7 @@ def cmd_export(args):
         return
 
     #  sessions
-    sessions_dict = defaultdict(
+    sessions_dict: DefaultDict[str, SessionStats] = defaultdict(
         lambda: {
             "session_id": "",
             "first_ts": "",
@@ -593,8 +614,8 @@ def cmd_export(args):
     print(f"📦 From {len(successful_sessions)} sessions, export golden dataset")
 
     # ： session  skill
-    session_data_list = []
-    skill_to_tools = defaultdict(set)  # skill_triggered ->  skill  session
+    session_data_list: list[dict[str, Any]] = []
+    skill_to_tools: DefaultDict[str, set[str]] = defaultdict(set)  # skill_triggered ->  skill  session
 
     for session in successful_sessions:
         session_id = session["session_id"]
@@ -644,7 +665,7 @@ def cmd_export(args):
             golden_output_source = "report"
 
         # Match skill
-        tool_names = [t["name"] for t in golden_tools]
+        tool_names: list[str] = [str(t["name"]) for t in golden_tools]
         skill_triggered = None
         skills_dir = workspace / "skills"
         if skills_dir.exists():
@@ -688,7 +709,7 @@ def cmd_export(args):
         skill_triggered = session_data["skill_triggered"]
 
         # Generate assertions
-        asserts = []
+        asserts: list[dict[str, Any]] = []
         for tool in tool_names:
             asserts.append({"type": "tool_called", "value": tool})
         if len(tool_names) > 1:
@@ -715,7 +736,7 @@ def cmd_export(args):
 
         # Generate not_tool_called
         skill_key = skill_triggered if skill_triggered else "__no_skill__"
-        all_tools_in_skill = skill_to_tools[skill_key]
+        all_tools_in_skill: set[str] = skill_to_tools[skill_key]
 
         #  session  > 1 Generate not_tool_called
         if (
@@ -784,18 +805,22 @@ def cmd_export(args):
             writer.writeheader()
 
             for record in records:
-                conv = record["conversation"][0]
-                tools_str = ", ".join(t["name"] for t in conv["golden_tool_sequence"])
+                conv_list = cast(list[dict[str, Any]], record["conversation"])
+                conv = conv_list[0]
+                golden_tool_seq = cast(list[dict[str, Any]], conv["golden_tool_sequence"])
+                tools_str = ", ".join(str(t["name"]) for t in golden_tool_seq)
+                golden_output = cast(str, conv["golden_output"])
+                metadata = cast(dict[str, Any], record["metadata"])
                 writer.writerow(
                     {
                         "id": record["id"],
                         "description": record["description"],
                         "user": conv["user"],
                         "golden_tools": tools_str,
-                        "golden_output": conv["golden_output"][:200],
-                        "skill_triggered": record["metadata"]["skill_triggered"] or "",
-                        "session_id": record["metadata"]["session_id"],
-                        "extracted_at": record["metadata"]["extracted_at"],
+                        "golden_output": golden_output[:200],
+                        "skill_triggered": metadata.get("skill_triggered") or "",
+                        "session_id": metadata.get("session_id", ""),
+                        "extracted_at": metadata.get("extracted_at", ""),
                     }
                 )
 
@@ -815,8 +840,8 @@ def cmd_export(args):
 # ============================================================================
 
 
-def cmd_edd(args):
-    """EDD command dispatch"""
+def cmd_edd(args: Any) -> None:
+    """EDD command dispatch."""
     if args.edd_cmd == "suggest":
         cmd_suggest(args)
     elif args.edd_cmd == "apply":
@@ -836,8 +861,8 @@ def cmd_edd(args):
 # ============================================================================
 
 
-def cmd_judge(args):
-    """Judge command entry - LLM scoring"""
+def cmd_judge(args: Any) -> None:
+    """Judge command entry - LLM scoring."""
     import os
 
     report_path = Path(args.report)
@@ -853,7 +878,7 @@ def cmd_judge(args):
 
     if provider == "anthropic":
         try:
-            from anthropic import Anthropic
+            from anthropic import Anthropic  # type: ignore[import-not-found]
 
             api_key = os.environ.get("ANTHROPIC_API_KEY")
             if not api_key:
@@ -866,7 +891,7 @@ def cmd_judge(args):
             sys.exit(1)
     elif provider == "openai":
         try:
-            from openai import OpenAI
+            from openai import OpenAI  # type: ignore[import-not-found]
 
             api_key = os.environ.get("OPENAI_API_KEY")
             if not api_key:
@@ -879,7 +904,7 @@ def cmd_judge(args):
             sys.exit(1)
     elif provider == "deepseek":
         try:
-            from openai import OpenAI
+            from openai import OpenAI  # type: ignore[import-not-found]
 
             api_key = os.environ.get("DEEPSEEK_API_KEY")
             if not api_key:
