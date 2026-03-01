@@ -938,6 +938,17 @@ def cmd_judge(args: Any) -> None:
 
         print(f"[{i}/{len(results)}] Evaluating {case_id}...")
 
+        # Collect plan texts from events
+        events_data = result.get("events", [])
+        plan_snippets = [
+            f"[{e.get('tool', '')}] {e.get('plan_text', '')}"
+            for e in events_data
+            if e.get("plan_text")
+        ]
+        plan_summary = (
+            "\n".join(plan_snippets) if plan_snippets else "(no plan text captured)"
+        )
+
         prompt = f"""Evaluate the AI agent execution result:
 
 User input: {message}
@@ -948,17 +959,27 @@ Final output: {final_output}
 
 Test status: {"passed" if passed else "failed"}
 
+Agent's stated plans (what it said before each tool call):
+{plan_summary}
+
+Actual tool trajectory: {tool_names}
+
 Please score the following dimensions (0-10):
 1. Tool selection: Were the selected tools appropriate and necessary?
 2. Tool order: Was the tool call order reasonable?
 3. Output quality: Is the output accurate, complete, and useful?
-4. Overall performance: Overall assessment.
+4. Plan-trajectory alignment: Did the agent execute what it stated it would do?
+   - 10: Every tool called was explicitly mentioned in the plan
+   - 5: Partial match, some tools match plan, others don't
+   - 0: Agent said one thing and did something completely different
+5. Overall performance: Overall assessment.
 
 Return JSON:
 {{
   "tool_selection_score": <0-10>,
   "tool_order_score": <0-10>,
   "output_quality_score": <0-10>,
+  "plan_alignment_score": <0-10>,
   "overall_score": <0-10>,
   "reasoning": "<short rationale>"
 }}"""
@@ -1039,11 +1060,16 @@ Return JSON:
         avg_output_quality = sum(
             r["llm_judgment"]["output_quality_score"] for r in valid_judgments
         ) / len(valid_judgments)
+        # Use .get() for backward compatibility with old reports
+        avg_plan_alignment = sum(
+            r["llm_judgment"].get("plan_alignment_score", 0) for r in valid_judgments
+        ) / len(valid_judgments)
 
         print(f"Overall score: {avg_overall:.1f}/10")
         print(f"Average tool selection: {avg_tool_selection:.1f}/10")
         print(f"Average tool order: {avg_tool_order:.1f}/10")
         print(f"Output: {avg_output_quality:.1f}/10")
+        print(f"Plan alignment: {avg_plan_alignment:.1f}/10")
 
     #
     output_path = (

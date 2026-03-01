@@ -106,9 +106,16 @@ def extract_tool_call_info(message: dict) -> dict | None:
     if role == "assistant":
         content = msg.get("content", [])
 
+        # Collect all text items for plan_text (concatenate with newlines)
+        plan_text_parts = []
+        tool_call_info = None
+
         for item in content:
-            if item.get("type") == "toolCall":
-                return {
+            if item.get("type") == "text" and item.get("text"):
+                plan_text_parts.append(item.get("text").strip())
+            elif item.get("type") == "toolCall" and tool_call_info is None:
+                # Capture the first toolCall
+                tool_call_info = {
                     "event": "tool_call",
                     "tool": item.get("name"),
                     "tool_call_id": item.get("id"),
@@ -117,16 +124,21 @@ def extract_tool_call_info(message: dict) -> dict | None:
                     "message_id": message.get("id"),
                 }
 
-        for item in content:
-            if item.get("type") == "text" and item.get("text"):
-                return {
-                    "event": "llm_response",
-                    "text": item.get("text"),
-                    "timestamp": message.get("timestamp"),
-                    "message_id": message.get("id"),
-                    "model": msg.get("model", ""),
-                    "usage": msg.get("usage", {}),
-                }
+        # If we found a toolCall, return it with plan_text
+        if tool_call_info:
+            tool_call_info["plan_text"] = "\n".join(plan_text_parts)
+            return tool_call_info
+
+        # No toolCall, but has text - return as llm_response
+        if plan_text_parts:
+            return {
+                "event": "llm_response",
+                "text": "\n".join(plan_text_parts),
+                "timestamp": message.get("timestamp"),
+                "message_id": message.get("id"),
+                "model": msg.get("model", ""),
+                "usage": msg.get("usage", {}),
+            }
 
     elif role == "toolResult":
         content = msg.get("content", [])
