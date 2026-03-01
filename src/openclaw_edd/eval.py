@@ -313,6 +313,54 @@ def _check_commands_ordered(
     }
 
 
+def _check_retries(events: list[Event], max_retries: int | None) -> dict:
+    """Detect consecutive identical tool calls (retry storms)."""
+    if max_retries is None:
+        return {"passed": True, "skipped": True}
+
+    consecutive = 1
+    max_seen = 1
+    retry_details = []
+
+    for i in range(1, len(events)):
+        prev, curr = events[i - 1], events[i]
+        if (
+            prev.kind == "tool_end"
+            and curr.kind == "tool_end"
+            and prev.tool == curr.tool
+            and prev.input == curr.input
+        ):
+            consecutive += 1
+            max_seen = max(max_seen, consecutive)
+        else:
+            if consecutive > 1:
+                retry_details.append(
+                    {
+                        "tool": events[i - 1].tool,
+                        "command": events[i - 1].input.get("command", ""),
+                        "count": consecutive,
+                    }
+                )
+            consecutive = 1
+
+    # Don't forget the last streak
+    if consecutive > 1:
+        retry_details.append(
+            {
+                "tool": events[-1].tool,
+                "command": events[-1].input.get("command", ""),
+                "count": consecutive,
+            }
+        )
+
+    return {
+        "passed": max_seen <= max_retries,
+        "max_consecutive": max_seen,
+        "limit": max_retries,
+        "retries": retry_details,
+    }
+
+
 def check_assertions(
     case: EvalCase, events: list[Event], final_output: str
 ) -> tuple[bool, list[str], dict[str, Any]]:
@@ -465,6 +513,15 @@ def check_assertions(
             "passed": tool_arg_passed,
             "details": tool_arg_details,
         }
+
+    # max_retries
+    if case.max_retries is not None:
+        retry_check = _check_retries(events, case.max_retries)
+        checks["max_retries"] = retry_check
+        if not retry_check["passed"]:
+            failures.append(
+                f"Too many retries: max consecutive {retry_check['max_consecutive']} > limit {case.max_retries}"
+            )
 
     return len(failures) == 0, failures, checks
 

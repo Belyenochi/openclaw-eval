@@ -18,6 +18,11 @@ class Event:
     ts: str = ""
     session_id: str = ""
     raw: dict = field(default_factory=dict)
+    plan_text: str = ""
+    model: str = ""
+    usage: dict = field(default_factory=dict)
+    status: str = ""  # "completed" | "running" | ""
+    exit_code: int | None = None  # process exit code
 
     def to_dict(self) -> dict:
         """Convert to dict and drop empty values."""
@@ -44,6 +49,7 @@ class EvalCase:
     timeout_s: int = 30
     tags: list[str] = field(default_factory=list)
     description: str = ""
+    max_retries: int | None = None  # Max allowed consecutive identical tool calls
 
 
 @dataclass

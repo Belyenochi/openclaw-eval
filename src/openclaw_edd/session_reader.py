@@ -189,6 +189,11 @@ def build_events_from_session(session_id: str) -> list[Event]:
                     ts=ts,
                     session_id=session_id,
                     raw=info,
+                    plan_text=call_info.get("plan_text", "") if call_info else "",
+                    model=call_info.get("model", "") if call_info else "",
+                    usage=call_info.get("usage", {}) if call_info else {},
+                    status=info.get("status", ""),
+                    exit_code=info.get("exit_code"),
                 )
             )
             continue
@@ -201,6 +206,9 @@ def build_events_from_session(session_id: str) -> list[Event]:
                     ts=info.get("timestamp", ""),
                     session_id=session_id,
                     raw=info,
+                    plan_text=info.get("text", ""),
+                    model=info.get("model", ""),
+                    usage=info.get("usage", {}),
                 )
             )
 
