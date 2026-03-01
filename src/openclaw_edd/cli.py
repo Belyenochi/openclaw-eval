@@ -43,9 +43,15 @@ def main() -> None:
     )
 
     trace_parser = subparsers.add_parser("trace", help="Replay a session event chain")
-    trace_parser.add_argument("--session", required=True, help="Session ID")
+    trace_parser.add_argument("--session", required=False, help="Session ID")
     trace_parser.add_argument(
         "--format", choices=["text", "json"], default="text", help="Output format"
+    )
+    trace_parser.add_argument(
+        "--last", action="store_true", help="Use most recent session"
+    )
+    trace_parser.add_argument(
+        "--plan", action="store_true", help="Show plan text before tool calls"
     )
 
     state_parser = subparsers.add_parser("state", help="View or modify session state")
@@ -222,14 +228,33 @@ def cmd_trace(args: argparse.Namespace) -> None:
     import json
     from pathlib import Path
 
+    from . import session_reader
     from .tracer import extract_events, read_logs_for_session
 
+    # Resolve session ID
+    session_id = args.session
+    if args.last:
+        session_id = session_reader.resolve_latest_session()
+        if not session_id:
+            print("✗ No sessions found")
+            sys.exit(1)
+        print(f"Using latest session: {session_id}")
+    elif not session_id:
+        print("✗ Either --session or --last must be provided")
+        sys.exit(1)
+
     log_dir = Path(args.log_dir)
-    entries = read_logs_for_session(log_dir, args.session)
-    events = extract_events(entries, args.session)
+    entries = read_logs_for_session(log_dir, session_id)
+    events = extract_events(entries, session_id)
+
+    # Also try to get events from session file for richer data
+    session_events = session_reader.build_events_from_session(session_id)
+    if session_events:
+        # Merge or use session events which have status/exit_code/plan_text
+        events = session_events
 
     if not events:
-        print(f"✗ Session not found: {args.session}")
+        print(f"✗ Session not found: {session_id}")
         sys.exit(1)
 
     if args.format == "json":
@@ -237,8 +262,20 @@ def cmd_trace(args: argparse.Namespace) -> None:
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return
 
-    print(f"Trace session={args.session} ({len(events)} events)")
-    print("-" * 60)
+    # Get session metadata for header
+    metadata = session_reader.extract_session_metadata(session_id)
+    model = metadata.get("model", "")
+    provider = metadata.get("provider", "")
+    model_str = f" ({model})" if model else ""
+    provider_str = f" ({provider})" if provider else ""
+
+    print(f"─── Session {session_id[:8]}{model_str}{provider_str} ───")
+    print()
+
+    # Track retry counts for identical consecutive calls
+    retry_count = 0
+    last_tool = ""
+    last_input: dict = {}
 
     for i, event in enumerate(events, 1):
         if event.kind == "tool_start":
@@ -246,21 +283,72 @@ def cmd_trace(args: argparse.Namespace) -> None:
             if event.input:
                 print(f"     input: {json.dumps(event.input, ensure_ascii=False)}")
         elif event.kind == "tool_end":
-            duration_str = f"{event.duration_ms}ms" if event.duration_ms else ""
-            print(f"#{i:02d} TOOL_END    {event.tool}  {duration_str}  {event.ts}")
+            # Check for retry (consecutive identical calls)
+            is_retry = (
+                event.tool == last_tool
+                and event.input == last_input
+                and event.tool == "exec"
+            )
+            if is_retry:
+                retry_count += 1
+            else:
+                retry_count = 0
+            last_tool = event.tool
+            last_input = event.input
+
+            # Show plan text if requested
+            if args.plan:
+                plan_text = event.plan_text if event.plan_text else "(no plan)"
+                if plan_text != "(no plan)":
+                    plan_preview = (
+                        plan_text[:80] + "..." if len(plan_text) > 80 else plan_text
+                    )
+                else:
+                    plan_preview = plan_text
+                print(f"  💭 {plan_preview}")
+
+            # Build status indicator
+            status_indicator = "✓"
+            duration_str = ""
+            exit_str = ""
+
+            if event.duration_ms:
+                duration_str = f" {event.duration_ms}ms"
+
+            if event.status == "running":
+                status_indicator = "⏳ running"
+            elif event.status == "completed":
+                status_indicator = "✓ completed"
+
+            if event.exit_code is not None:
+                exit_str = f" | exit={event.exit_code}"
+
+            retry_str = f" ← RETRY #{retry_count + 1}" if retry_count > 0 else ""
+
+            print(
+                f"  {status_indicator}{retry_str}\n"
+                f"  🔧 {event.tool}{duration_str}{exit_str}"
+            )
+
+            # Show command for exec tool
+            if event.tool == "exec" and event.input.get("command"):
+                cmd = event.input.get("command", "")
+                cmd_preview = cmd[:100] + "..." if len(cmd) > 100 else cmd
+                print(f"     $ {cmd_preview}")
+
             if event.output:
                 output_str = (
                     event.output[:100] + "..."
                     if len(event.output) > 100
                     else event.output
                 )
-                print(f"     output: {output_str}")
+                print(f"     → {output_str}")
         elif event.kind == "llm_response":
             output_str = (
                 event.output[:200] + "..." if len(event.output) > 200 else event.output
             )
-            print(f"#{i:02d} LLM_RESP    {event.ts}")
-            print(f"     {output_str}")
+            print(f"  📝 {output_str}")
+            print()
 
 
 def cmd_state(args: argparse.Namespace) -> None:

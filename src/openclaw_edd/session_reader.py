@@ -12,6 +12,17 @@ from .models import Event
 SESSION_DIR = Path.home() / ".openclaw" / "agents" / "main" / "sessions"
 
 
+def resolve_latest_session(agent: str = "main") -> str | None:
+    """Find the most recently modified session file."""
+    session_dir = Path.home() / ".openclaw" / "agents" / agent / "sessions"
+    jsonl_files = sorted(
+        session_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
+    if not jsonl_files:
+        return None
+    return jsonl_files[0].stem  # filename without .jsonl
+
+
 def get_session_file_path(session_id: str) -> Path:
     """Return the session file path for a session ID."""
     return SESSION_DIR / f"{session_id}.jsonl"
