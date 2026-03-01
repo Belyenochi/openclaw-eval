@@ -105,7 +105,9 @@ def analyze_failure(result: dict, workspace: Path) -> dict:
         elif "Tool argument mismatch" in failure:
             import re
 
-            match = re.search(r"Tool argument mismatch: (\\w+)\\.(\\w+) =(\\S+)", failure)
+            match = re.search(
+                r"Tool argument mismatch: (\\w+)\\.(\\w+) =(\\S+)", failure
+            )
             if match:
                 tool_name, arg_key, expected = match.groups()
                 suggestion["recommendations"].append(
@@ -173,9 +175,7 @@ class SessionStats(TypedDict):
     agent: str
 
 
-def apply_suggestion(
-    suggestion: dict, workspace: Path, auto_yes: bool = False
-) -> None:
+def apply_suggestion(suggestion: dict, workspace: Path, auto_yes: bool = False) -> None:
     """Apply a single suggestion."""
     for rec in suggestion["recommendations"]:
         file_path = workspace / rec["file"]
@@ -615,7 +615,9 @@ def cmd_export(args: Any) -> None:
 
     # ： session  skill
     session_data_list: list[dict[str, Any]] = []
-    skill_to_tools: DefaultDict[str, set[str]] = defaultdict(set)  # skill_triggered ->  skill  session
+    skill_to_tools: DefaultDict[str, set[str]] = defaultdict(
+        set
+    )  # skill_triggered ->  skill  session
 
     for session in successful_sessions:
         session_id = session["session_id"]
@@ -807,7 +809,9 @@ def cmd_export(args: Any) -> None:
             for record in records:
                 conv_list = cast(list[dict[str, Any]], record["conversation"])
                 conv = conv_list[0]
-                golden_tool_seq = cast(list[dict[str, Any]], conv["golden_tool_sequence"])
+                golden_tool_seq = cast(
+                    list[dict[str, Any]], conv["golden_tool_sequence"]
+                )
                 tools_str = ", ".join(str(t["name"]) for t in golden_tool_seq)
                 golden_output = cast(str, conv["golden_output"])
                 metadata = cast(dict[str, Any], record["metadata"])
