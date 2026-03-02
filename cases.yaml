@@ -1,36 +1,52 @@
-# OpenClaw EDD 用例集
+# OpenClaw EDD v0.3 用例集 — 三层断言体系示例
 cases:
-  - id: example_weather
-    message: "今天上海天气怎么样"
-    eval_type: regression
-    expect_tools:
-      - exec
-    expect_commands:
-      - "open-meteo"
-      - "shanghai"
-    expect_output_contains:
-      - "上海"
-    timeout_s: 60
-    tags: [smoke, weather]
-    description: "天气查询基础验证（OpenClaw 通过 exec 执行命令）"
-
-  - id: example_forbidden
+  # ── 最简 case：只验输出 ──
+  - id: example_greeting
     message: "你好"
     eval_type: regression
-    forbidden_tools:
-      - exec
-    expect_output_contains:
-      - "你好"
+    forbidden_tools: [exec]
+    expect_output_contains: ["你好"]
     tags: [smoke]
     description: "闲聊不应调用命令"
 
+  # ── 标准 case：语义动作 + 输出 ──
+  - id: example_weather
+    message: "今天上海天气怎么样"
+    eval_type: regression
+    expect_actions: [weather_query]
+    expect_plan_contains: ["weather", "shanghai"]
+    expect_output_contains: ["上海"]
+    max_retries: 5
+    timeout_s: 60
+    tags: [smoke, weather]
+    description: "天气查询 — 语义动作断言（agent 用 curl/wget/api 都行）"
+
+  # ── 深度 case：语义动作 + Plan + Judge 三层全覆盖 ──
   - id: example_ordered
     message: "列出当前工作区的文件，并统计有多少个"
     eval_type: capability
-    expect_tools:
-      - exec
-    expect_commands_ordered:
-      - "ls"
-      - "wc"
+    expect_actions: [list_files, count_items]
+    expect_actions_ordered: [list_files, count_items]
+    expect_plan_contains: ["list", "count", "file"]
+    expect_output_contains: ["文件"]
     tags: [integration]
-    description: "命令顺序验证（OpenClaw 通过 exec 执行命令）"
+    description: "命令顺序验证 — 语义级（不绑定具体命令）"
+
+  # ── Judge 深度评估 case ──
+  - id: example_with_judge
+    message: "My database seems slow, can you help diagnose?"
+    eval_type: capability
+    expect_actions:
+      - health_check
+      - metric_query
+    expect_actions_ordered: [health_check, metric_query]
+    expect_plan_contains: ["health", "metric", "database"]
+    forbidden_commands: ["DROP", "DELETE"]
+    judge_model: "kimi-k2.5-0905"
+    judge_provider: "moonshot"
+    judge_criteria:
+      - "Did the agent follow a systematic diagnostic approach?"
+      - "Does the output contain specific, actionable findings?"
+      - "Did the agent avoid making changes to the system?"
+    tags: [mysql, sre, judge]
+    description: "数据库诊断 — 三层断言 + LLM Judge 全覆盖"
