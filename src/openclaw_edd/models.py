@@ -19,6 +19,7 @@ class Event:
     session_id: str = ""
     raw: dict = field(default_factory=dict)
     plan_text: str = ""
+    thinking: str = ""  # Agent's reasoning before tool calls
     model: str = ""
     usage: dict = field(default_factory=dict)
     status: str = ""  # "completed" | "running" | ""

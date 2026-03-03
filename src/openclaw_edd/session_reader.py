@@ -106,13 +106,20 @@ def extract_tool_call_info(message: dict) -> dict | None:
     if role == "assistant":
         content = msg.get("content", [])
 
-        # Collect all text items for plan_text (concatenate with newlines)
+        # Collect text, thinking, and tool calls separately
         plan_text_parts = []
+        thinking_parts = []
         tool_call_info = None
 
         for item in content:
             if item.get("type") == "text" and item.get("text"):
                 plan_text_parts.append(item.get("text").strip())
+            elif item.get("type") == "thinking" and item.get("thinking"):
+                # Capture thinking content separately
+                thinking_text = item.get("thinking").strip()
+                thinking_parts.append(thinking_text)
+                # Also add to plan_text with prefix for backward compatibility
+                plan_text_parts.append(f"[thinking] {thinking_text}")
             elif item.get("type") == "toolCall" and tool_call_info is None:
                 # Capture the first toolCall
                 tool_call_info = {
@@ -124,16 +131,22 @@ def extract_tool_call_info(message: dict) -> dict | None:
                     "message_id": message.get("id"),
                 }
 
-        # If we found a toolCall, return it with plan_text
+        # Prepare thinking and plan_text
+        thinking = "\n".join(thinking_parts)
+        plan_text = "\n".join(plan_text_parts)
+
+        # If we found a toolCall, return it with plan_text and thinking
         if tool_call_info:
-            tool_call_info["plan_text"] = "\n".join(plan_text_parts)
+            tool_call_info["plan_text"] = plan_text
+            tool_call_info["thinking"] = thinking
             return tool_call_info
 
         # No toolCall, but has text - return as llm_response
         if plan_text_parts:
             return {
                 "event": "llm_response",
-                "text": "\n".join(plan_text_parts),
+                "text": plan_text,
+                "thinking": thinking,
                 "timestamp": message.get("timestamp"),
                 "message_id": message.get("id"),
                 "model": msg.get("model", ""),
@@ -234,6 +247,7 @@ def build_events_from_session(session_id: str) -> list[Event]:
                     session_id=session_id,
                     raw=info,
                     plan_text=call_info.get("plan_text", "") if call_info else "",
+                    thinking=call_info.get("thinking", "") if call_info else "",
                     model=call_info.get("model", "") if call_info else "",
                     usage=call_info.get("usage", {}) if call_info else {},
                     status=info.get("status", ""),
@@ -251,6 +265,7 @@ def build_events_from_session(session_id: str) -> list[Event]:
                     session_id=session_id,
                     raw=info,
                     plan_text=info.get("text", ""),
+                    thinking=info.get("thinking", ""),
                     model=info.get("model", ""),
                     usage=info.get("usage", {}),
                 )
