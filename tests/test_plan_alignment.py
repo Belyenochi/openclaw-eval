@@ -216,9 +216,8 @@ def test_thinking_in_llm_response():
     result = extract_tool_call_info(message)
     assert result is not None
     assert result["event"] == "llm_response"
-    assert "Here's my analysis." in result["text"]
-    assert "Final answer." in result["text"]
-    # thinking field should contain thinking content
+    # text field should ONLY contain actual text content, not thinking
+    assert result["text"] == "Here's my analysis.\nFinal answer."
+    assert "[thinking]" not in result["text"]
+    # thinking field should contain thinking content separately
     assert result["thinking"] == "Let me think through this step by step."
-    # plan_text should include thinking with prefix
-    assert "[thinking] Let me think through this step by step." in result["text"]
