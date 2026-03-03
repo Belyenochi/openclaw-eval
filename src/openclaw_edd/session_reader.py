@@ -52,44 +52,11 @@ def read_session_messages(session_id: str) -> Generator[dict, None, None]:
                 continue
 
 
-def tail_session_file(
-    session_id: str, from_end: bool = True
-) -> Generator[dict, None, None]:
-    """Tail a session file and yield new messages.
-
-    Args:
-        session_id: Session ID.
-        from_end: If True, start from end of file.
-
-    Yields:
-        Parsed JSON messages.
-    """
-    import time
-
-    session_file = get_session_file_path(session_id)
-
-    while not session_file.exists():
-        time.sleep(0.5)
-
-    with open(session_file, "r", encoding="utf-8") as f:
-        if from_end:
-            f.seek(0, 2)
-
-        while True:
-            line = f.readline()
-            if line:
-                line = line.strip()
-                if line:
-                    try:
-                        yield json.loads(line)
-                    except json.JSONDecodeError:
-                        pass
-            else:
-                time.sleep(0.05)
-
-
 def extract_tool_call_info(message: dict) -> dict | None:
     """Extract tool-call or response info from a session message.
+
+    Legacy function kept for backward compatibility with tests.
+    New code should use build_events_from_session directly.
 
     Args:
         message: Session message dict.
@@ -182,6 +149,137 @@ def extract_tool_call_info(message: dict) -> dict | None:
     return None
 
 
+def tail_session_file(
+    session_id: str, from_end: bool = True
+) -> Generator[dict, None, None]:
+    """Tail a session file and yield new messages.
+
+    Args:
+        session_id: Session ID.
+        from_end: If True, start from end of file.
+
+    Yields:
+        Parsed JSON messages.
+    """
+    import time
+
+    session_file = get_session_file_path(session_id)
+
+    while not session_file.exists():
+        time.sleep(0.5)
+
+    with open(session_file, "r", encoding="utf-8") as f:
+        if from_end:
+            f.seek(0, 2)
+
+        while True:
+            line = f.readline()
+            if line:
+                line = line.strip()
+                if line:
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        pass
+            else:
+                time.sleep(0.05)
+
+
+def build_events_from_session(session_id: str) -> list[Event]:
+    """Build events from a session file.
+
+    Args:
+        session_id: Session ID.
+
+    Returns:
+        List of Event objects. Event sequence:
+        - llm_turn: represents one complete LLM call (with thinking, tool_calls/text, usage)
+        - tool_end: follows each llm_turn that has tool_calls (binds to parent llm_turn)
+    """
+    events: list[Event] = []
+    messages = list(read_session_messages(session_id))
+
+    # Step 1: Build toolCallId -> toolResult message index
+    tool_results: dict[str, dict] = {}
+    for msg in messages:
+        if msg.get("type") != "message":
+            continue
+        m = msg.get("message", {})
+        if m.get("role") == "toolResult":
+            tool_results[m.get("toolCallId", "")] = msg
+
+    # Step 2: Process assistant messages
+    for msg in messages:
+        if msg.get("type") != "message":
+            continue
+        m = msg.get("message", {})
+
+        if m.get("role") != "assistant":
+            continue
+
+        content = m.get("content", [])
+        thinking = ""
+        text = ""
+        tool_calls_in_turn = []
+
+        for block in content:
+            block_type = block.get("type")
+            if block_type == "thinking":
+                thinking = block.get("thinking", "")
+            elif block_type == "text":
+                text = block.get("text", "")
+            elif block_type == "toolCall":
+                tool_calls_in_turn.append(block)
+
+        # Create llm_turn event
+        llm_turn_event = Event(
+            kind="llm_turn",
+            thinking=thinking,
+            text=text,
+            tool_calls=tool_calls_in_turn,
+            model=m.get("model", ""),
+            usage=m.get("usage", {}),
+            stop_reason=m.get("stopReason", ""),
+            ts=str(msg.get("timestamp", "")),
+            session_id=session_id,
+            raw=m,
+        )
+        events.append(llm_turn_event)
+
+        # Step 3: For each toolCall, find corresponding toolResult and create tool_end
+        for tc in tool_calls_in_turn:
+            tc_id = tc.get("id", "")
+            result_msg = tool_results.get(tc_id)
+            if result_msg:
+                rm = result_msg.get("message", {})
+                output_text = ""
+                for item in rm.get("content", []):
+                    if item.get("type") == "text":
+                        output_text = item.get("text", "")
+                        break
+
+                details = rm.get("details", {})
+                events.append(
+                    Event(
+                        kind="tool_end",
+                        tool=tc.get("name", ""),
+                        input=tc.get("arguments", {}),
+                        output=output_text,
+                        thinking=thinking,  # Bind to parent llm_turn's thinking
+                        model=m.get("model", ""),
+                        usage=m.get("usage", {}),  # Bind to parent llm_turn's usage
+                        duration_ms=details.get("durationMs"),
+                        status=details.get("status", ""),
+                        exit_code=details.get("exitCode"),
+                        ts=str(result_msg.get("timestamp", "")),
+                        session_id=session_id,
+                        raw=rm,
+                    )
+                )
+
+    return events
+
+
 def extract_session_metadata(session_id: str) -> dict[str, Any]:
     """Extract metadata from session header events.
 
@@ -201,78 +299,3 @@ def extract_session_metadata(session_id: str) -> dict[str, Any]:
         elif msg_type == "message":
             break  # Stop after header events
     return metadata
-
-
-def build_events_from_session(session_id: str) -> list[Event]:
-    """Build events from a session file.
-
-    Args:
-        session_id: Session ID.
-
-    Returns:
-        List of Event objects.
-    """
-    events: list[Event] = []
-    pending_calls: dict[str, dict] = {}
-
-    for message in read_session_messages(session_id):
-        info = extract_tool_call_info(message)
-        if not info:
-            continue
-
-        event_type = info.get("event")
-
-        if event_type == "tool_call":
-            tool_call_id = (
-                info.get("tool_call_id")
-                or f"{info.get('tool','')}-{info.get('message_id','')}"
-            )
-            pending_calls[tool_call_id] = info
-            continue
-
-        if event_type == "tool_result":
-            tool_call_id = (
-                info.get("tool_call_id")
-                or f"{info.get('tool','')}-{info.get('message_id','')}"
-            )
-            call_info = pending_calls.pop(tool_call_id, None)
-            ts = str(
-                info.get("timestamp")
-                or (call_info.get("timestamp") if call_info else "")
-            )
-            events.append(
-                Event(
-                    kind="tool_end",
-                    tool=info.get("tool", ""),
-                    input=call_info.get("arguments", {}) if call_info else {},
-                    output=info.get("output", ""),
-                    duration_ms=info.get("duration_ms"),
-                    ts=ts,
-                    session_id=session_id,
-                    raw=info,
-                    plan_text=call_info.get("plan_text", "") if call_info else "",
-                    thinking=call_info.get("thinking", "") if call_info else "",
-                    model=call_info.get("model", "") if call_info else "",
-                    usage=call_info.get("usage", {}) if call_info else {},
-                    status=info.get("status", ""),
-                    exit_code=info.get("exit_code"),
-                )
-            )
-            continue
-
-        if event_type == "llm_response":
-            events.append(
-                Event(
-                    kind="llm_response",
-                    output=info.get("text", ""),
-                    ts=info.get("timestamp", ""),
-                    session_id=session_id,
-                    raw=info,
-                    plan_text=info.get("text", ""),
-                    thinking=info.get("thinking", ""),
-                    model=info.get("model", ""),
-                    usage=info.get("usage", {}),
-                )
-            )
-
-    return events

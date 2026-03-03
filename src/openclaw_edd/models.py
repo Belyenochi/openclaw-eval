@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 class Event:
     """A single event emitted by tools or the LLM."""
 
-    kind: str  # "tool_start" | "tool_end" | "llm_response"
+    kind: str  # "llm_turn" | "tool_end"
     tool: str = ""
     input: dict = field(default_factory=dict)
     output: str = ""
@@ -19,11 +19,15 @@ class Event:
     session_id: str = ""
     raw: dict = field(default_factory=dict)
     plan_text: str = ""
-    thinking: str = ""  # Agent's reasoning before tool calls
+    thinking: str = ""  # LLM reasoning content for this turn
     model: str = ""
     usage: dict = field(default_factory=dict)
     status: str = ""  # "completed" | "running" | ""
     exit_code: int | None = None  # process exit code
+    # llm_turn specific fields
+    tool_calls: list = field(default_factory=list)  # toolUse turn's tool calls
+    stop_reason: str = ""  # "toolUse" | "stop" | ""
+    text: str = ""  # pure text output (stop turn)
 
     def to_dict(self) -> dict:
         """Convert to dict and drop empty values."""

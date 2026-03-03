@@ -743,20 +743,28 @@ def run_eval_case(
     if start_dt and end_dt:
         events = _filter_events_by_time(events, start_dt, end_dt)
 
-    # Get final output
+    # Get final output (from llm_turn with stop_reason="stop")
     for event in reversed(events):
-        if event.kind == "llm_response":
-            final_output = event.output
+        if event.kind == "llm_turn" and event.stop_reason == "stop":
+            final_output = event.text
             break
 
     # Check assertions
     passed, failures, checks = check_assertions(case, events, final_output)
 
-    # Extract session metadata and aggregate usage
+    # Extract session metadata and aggregate usage from llm_turn events
     metadata = session_reader.extract_session_metadata(session_id) if session_id else {}
-    total_input = sum(e.usage.get("input", 0) for e in events if e.usage)
-    total_output = sum(e.usage.get("output", 0) for e in events if e.usage)
-    total_cost = sum(e.usage.get("cost", {}).get("total", 0) for e in events if e.usage)
+    total_input = sum(
+        e.usage.get("input", 0) for e in events if e.kind == "llm_turn" and e.usage
+    )
+    total_output = sum(
+        e.usage.get("output", 0) for e in events if e.kind == "llm_turn" and e.usage
+    )
+    total_cost = sum(
+        e.usage.get("cost", {}).get("total", 0)
+        for e in events
+        if e.kind == "llm_turn" and e.usage
+    )
 
     return EvalResult(
         case=case,
@@ -792,7 +800,7 @@ def _events_from_state(state: dict, session_id: str) -> list[Event]:
         kind = item.get("kind") or item.get("type")
         if kind == "tool":
             kind = "tool_end"
-        if kind not in ("tool_start", "tool_end", "llm_response"):
+        if kind not in ("tool_start", "tool_end", "llm_turn"):
             continue
         events.append(
             Event(
@@ -988,11 +996,19 @@ def cmd_run(args: Any) -> None:
                         if len(str(event.output)) > 100:
                             output_str += "..."
                         print(f"       Output: {output_str}")
-                elif event.kind == "llm_response":
-                    output_str = event.output[:100]
-                    if len(event.output) > 100:
-                        output_str += "..."
-                    print(f"    {i}. 💬 LLM response: {output_str}")
+                elif event.kind == "llm_turn":
+                    if event.stop_reason == "stop":
+                        text_str = event.text[:100] if event.text else ""
+                        if event.text and len(event.text) > 100:
+                            text_str += "..."
+                        print(f"    {i}. 💬 LLM response: {text_str}")
+                    else:
+                        print(f"    {i}. 🧠 LLM decision ({event.model})")
+                        if event.thinking:
+                            thinking_str = event.thinking[:80]
+                            if len(event.thinking) > 80:
+                                thinking_str += "..."
+                            print(f"       Thinking: {thinking_str}")
             print()
 
         # Output（ trace）

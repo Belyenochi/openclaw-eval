@@ -34,8 +34,8 @@ def build_judge_prompt(
             trajectory_lines.append(
                 f"  [{e.tool}] {cmd} → {status} ({e.duration_ms or '?'}ms){plan}"
             )
-        elif e.kind == "llm_response":
-            trajectory_lines.append(f"  [response] {e.output[:200]}...")
+        elif e.kind == "llm_turn" and e.stop_reason == "stop":
+            trajectory_lines.append(f"  [response] {e.text[:200]}...")
 
     trajectory_str = "\n".join(trajectory_lines) or "(no tool calls)"
 
