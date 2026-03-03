@@ -135,7 +135,9 @@ def extract_tool_call_info(message: dict) -> dict | None:
         thinking = "\n".join(thinking_parts)
         plan_text = "\n".join(plan_text_parts)
         # For llm_response: text should only contain actual text content, not thinking
-        text_only = "\n".join([p for p in plan_text_parts if not p.startswith("[thinking] ")])
+        text_only = "\n".join(
+            [p for p in plan_text_parts if not p.startswith("[thinking] ")]
+        )
 
         # If we found a toolCall, return it with plan_text and thinking
         if tool_call_info:
