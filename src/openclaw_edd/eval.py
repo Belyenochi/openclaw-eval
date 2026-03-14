@@ -434,8 +434,14 @@ def _check_plan_contains(events: list[Event], expect_keywords: list[str]) -> dic
     plan_text is extracted from assistant messages that precede tool calls.
     This validates that the agent's stated reasoning aligns with its actions.
     """
-    # Collect all plan_text
-    all_plan_text = " ".join(e.plan_text for e in events if e.plan_text).lower()
+    # Collect all plan_text and thinking (kimi/other models store reasoning in e.thinking)
+    parts = []
+    for e in events:
+        if e.plan_text:
+            parts.append(e.plan_text)
+        if e.thinking:
+            parts.append(e.thinking)
+    all_plan_text = " ".join(parts).lower()
 
     if not all_plan_text:
         return {
