@@ -158,12 +158,13 @@ def main() -> None:
         "--format", choices=["text", "json"], default="text", help="Output format"
     )
 
-    mine_parser = edd_subparsers.add_parser("mine", help="Mine golden cases from logs")
+    mine_parser = edd_subparsers.add_parser(
+        "mine", help="Mine golden cases from sessions"
+    )
     mine_parser.add_argument("--output", default="mined_cases.yaml", help="Output file")
     mine_parser.add_argument(
         "--min-tools", type=int, default=1, help="Minimum tool calls"
     )
-    mine_parser.add_argument("--log-dir", help="Log directory")
     mine_parser.add_argument("--workspace", default="", help="Workspace path")
 
     judge_parser = edd_subparsers.add_parser(

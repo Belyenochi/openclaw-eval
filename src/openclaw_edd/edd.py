@@ -433,37 +433,20 @@ def cmd_diff(args: Any) -> None:
 
 def cmd_mine(args: Any) -> None:
     """Mine command entry."""
-    from .tracer import (
-        LOG_DIR,
-        extract_events,
-        read_logs_for_session,
-        sessions_from_logs,
+    from . import session_reader
+
+    print("📦 Scanning sessions...")
+    session_dir = session_reader.SESSION_DIR
+    session_files = sorted(
+        session_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
     )
 
-    log_dir = Path(args.log_dir) if args.log_dir else LOG_DIR
-
-    #  sessions（）
-    print("📦 Scanning log files...")
-    all_sessions = sessions_from_logs(log_dir)
-
-    if not all_sessions:
+    if not session_files:
         print("✗ No sessions found")
         return
 
-    #  session
-    successful_sessions = []
-    for session in all_sessions:
-        if session["tool_count"] >= args.min_tools and session["turns"] > 0:
-            successful_sessions.append(session)
-
-    if not successful_sessions:
-        print("✗ No sessions matched criteria")
-        return
-
-    print(f"📦 From {len(successful_sessions)} sessions, extracting cases")
-
     # Read existing cases (dedupe)
-    existing_messages = set()
+    existing_messages: set[str] = set()
     output_file = Path(args.output) if args.output else Path("mined_cases.yaml")
     if output_file.exists():
         try:
@@ -479,39 +462,42 @@ def cmd_mine(args: Any) -> None:
 
     # Extract new cases
     new_cases = []
-    for session in successful_sessions:
-        session_id = session["session_id"]
+    for session_file in session_files:
+        session_id = session_file.stem
 
-        # Read session logs
-        entries = read_logs_for_session(log_dir, session_id)
-        events = extract_events(entries, session_id)
+        events = session_reader.build_events_from_session(session_id)
+        tool_ends = [e for e in events if e.kind == "tool_end"]
 
-        # Extract message
+        if len(tool_ends) < args.min_tools:
+            continue
+
+        # Extract first user message from session file
         message = None
-        for entry in entries:
-            if "user_message" in entry:
-                message = entry["user_message"]
-                break
-            elif "input" in entry and isinstance(entry["input"], str):
-                message = entry["input"]
-                break
-            elif "prompt" in entry:
-                message = entry["prompt"]
+        for msg in session_reader.read_session_messages(session_id):
+            if msg.get("type") != "message":
+                continue
+            m = msg.get("message", {})
+            if m.get("role") == "user":
+                for block in m.get("content", []):
+                    if block.get("type") == "text" and block.get("text"):
+                        message = block["text"].strip()
+                        break
+            if message:
                 break
 
         if not message or message in existing_messages:
             continue
 
-        # Extract tool sequence
-        tool_names = [e.tool for e in events if e.kind == "tool_end"]
+        tool_names = [e.tool for e in tool_ends]
+        ts = str(session_file.stat().st_mtime)[:10]
 
         case = {
             "id": f"mined_{session_id[:8]}",
             "message": message,
-            "expect_tools": list(dict.fromkeys(tool_names)),  #
+            "expect_tools": list(dict.fromkeys(tool_names)),
             "expect_tools_ordered": tool_names,
             "tags": ["mined"],
-            "description": f"From session {session_id[:8]} ， {session['last_ts'][:10]}",
+            "description": f"From session {session_id[:8]}, {ts}",
         }
 
         new_cases.append(case)
