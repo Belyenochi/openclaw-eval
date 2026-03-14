@@ -94,6 +94,9 @@ cases:
     expect_tool_args:              # Tool argument assertions (White-box evaluation)
       exec:
         command: "check_health"    # Substring match for string values
+    expect_plan_contains:          # Keywords that must appear in agent reasoning/thinking
+      - "slow query"
+    pass_at_k: 3                   # Run 3 times; passed if at least 1 attempt succeeds
     agent: openclaw_agent
     timeout_s: 30
     tags: [mysql, sre]
@@ -102,8 +105,10 @@ cases:
 
 Notes:
 - `expect_commands`, `expect_commands_ordered`, and `forbidden_commands` do case-insensitive substring matching on `exec` tool `input.command`.
-- `expect_output_contains` is case-insensitive substring matching.
+- `expect_output_contains` is case-insensitive substring matching. **All** keywords must be present (AND logic).
 - For `expect_tool_args`, string values use case-insensitive substring matching; non-strings use exact match.
+- `expect_plan_contains` searches the agent's reasoning text and thinking blocks (case-insensitive). Useful for validating the agent's intent, not just its actions.
+- `pass_at_k` runs the case K times; the case is marked passed if at least 1 attempt succeeds. Use `--pass-at-k K` on the CLI to override all cases.
 
 ### Eval Type Explanation
 
