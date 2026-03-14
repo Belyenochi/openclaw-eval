@@ -43,7 +43,7 @@ openclaw-edd edd diff --before round1.json --after round2.json
 
 📖 **[Complete User Guide](./USER_JOURNEY.md)** — 7-step walkthrough from install to CI integration.
 
-中文版：**[用户路径指南](./USER_JOURNEY_CN.md)**
+📖 **[用户路径指南](./USER_JOURNEY_CN.md)** — 从安装到 CI 集成的 7 步完整教程。
 
 ## Commands
 
