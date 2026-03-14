@@ -165,7 +165,8 @@ PASS: mysql_basic_query ...
 
 ## Data Sources
 
-- **Session files**: `~/.openclaw/agents/<agent>/sessions/<session_id>.json` — primary source for tool events, LLM decisions, and output
+- **Session files**: `~/.openclaw/agents/<agent>/sessions/<session_id>.json` — primary source for `run` / `trace` (tool events, LLM decisions, output)
+- **Log files**: `/tmp/openclaw/openclaw-YYYY-MM-DD.log` — used by `watch`, `mine`, and `export`
 - **State**: `~/.openclaw_eval/state/<session_id>.json` — fallback when session file is unavailable
 - **Artifacts**: `~/.openclaw_eval/artifacts/<session_id>/`
 

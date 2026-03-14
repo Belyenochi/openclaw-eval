@@ -87,14 +87,14 @@ kill $(cat /tmp/openclaw_edd_watch.pid)
 ### run - 运行评测
 
 ```bash
-# 使用内置用例
-openclaw-edd run
+# 使用内置 quickstart 用例（6 个场景，推荐新手）
+openclaw-edd run --quickstart --agent main
 
 # 使用自定义用例
 openclaw-edd run --cases cases.yaml
 
 # 过滤 tags
-openclaw-edd run --cases cases.yaml --tags smoke,mysql
+openclaw-edd run --cases cases.yaml --tags smoke mysql
 
 # 单个用例（命令行指定）
 openclaw-edd run --case "今天上海天气" --expect-tools get_weather
@@ -266,7 +266,8 @@ PASS: mysql_basic_query ...
 
 ## 数据源
 
-- **Session 文件**: `~/.openclaw/agents/<agent>/sessions/<session_id>.json` — 工具事件、LLM 决策、输出的主要来源
+- **Session 文件**: `~/.openclaw/agents/<agent>/sessions/<session_id>.json` — `run` / `trace` 的主要数据源（工具事件、LLM 决策、输出）
+- **日志文件**: `/tmp/openclaw/openclaw-YYYY-MM-DD.log` — `watch`、`mine`、`export` 使用
 - **State**: `~/.openclaw_eval/state/<session_id>.json` — session 文件不可用时的回退
 - **Artifacts**: `~/.openclaw_eval/artifacts/<session_id>/`
 

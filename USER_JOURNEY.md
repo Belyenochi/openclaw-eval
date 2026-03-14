@@ -79,9 +79,8 @@ Assertion priority guide:
 ## Step 7: CI Integration
 ```bash
 openclaw-edd run --cases my_cases.json --agent main \
-  --threshold 0.8 --regression-threshold 1.0 \
-  --output-json ci.json --summary-line --quiet
-# exit 0 = pass, exit 1 = fail, exit 2 = config error
+  --output-json ci.json --summary-line
+# exit 0 = all cases passed, exit 1 = any case failed
 ```
 
 ```
