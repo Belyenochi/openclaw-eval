@@ -41,9 +41,9 @@ openclaw-edd run --quickstart --agent main --output-json round2.json
 openclaw-edd edd diff --before round1.json --after round2.json
 ```
 
-📖 **[Complete User Guide →](./USER_JOURNEY.md)** — 7-step walkthrough from install to CI integration.
+📖 **[Complete User Guide](./USER_JOURNEY.md)** — 7-step walkthrough from install to CI integration.
 
-中文版本：**[用户路径指南 →](./USER_JOURNEY_CN.md)**。
+中文版：**[用户路径指南](./USER_JOURNEY_CN.md)**
 
 ## Commands
 
