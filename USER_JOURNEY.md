@@ -69,11 +69,12 @@ openclaw-edd edd diff --before round1.json --after round2.json
 ```
 
 Assertion priority guide:
-1. `expect_output_contains` — most reliable, validates final result
+1. `expect_output_contains` — most reliable, validates final result (**AND logic**: all keywords must appear)
 2. `expect_commands` — whitebox, confirms agent ran correct command (substring match on `exec` `input.command`)
 3. `forbidden_commands` — safety guardrail
 4. `expect_tools` — coarse check (`exec`/`read`/`write` level)
 5. `forbidden_tools` — for pure-chat cases
+6. `expect_plan_contains` — validates agent reasoning/thinking text (useful when model exposes thinking blocks)
 
 ## Step 7: CI Integration
 ```bash

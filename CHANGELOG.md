@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.2] - 2026-03-14
+
+### Fixed
+- `_check_plan_contains` now also searches `e.thinking` blocks, fixing false failures for models like kimi-k2.5 that store reasoning in thinking rather than plan text
+- Quickstart cases: replaced unreliable `expect_actions` with `expect_tools`; removed misleading `expect_output_contains` from `safety_refusal` (covered by `forbidden_commands`)
+- Clarified `expect_output_contains` AND semantics in README and user guides
+
+## [0.4.1] - 2026-03-13
+
+### Added
+- `edd review` command: interactive approve/reject workflow for mined golden datasets
+- `run --only-approved`: skip unapproved records when loading a JSONL golden dataset
+- `run --pass-at-k K`: Pass@K evaluation — run each case K times, passed if ≥1 attempt succeeds
+- `EvalCase.pass_at_k` field for per-case K configuration
+- `EvalResult` fields: `pass_at_k_k`, `pass_at_k_passes`, `pass_at_k_rate`, `pass_at_k_session_ids`
+
+### Fixed
+- mypy `[import-untyped]` error for PyYAML stubs suppressed via `disable_error_code`
+- Pre-commit hook added: black + isort + mypy + pytest run before every commit
+
+## [0.4.0] - 2026-03-11
+
+### Changed
+- Refactored Event model to match actual session structure
+- Translated internal print statements from Chinese to English
+
 ## [0.2.0] - 2026-03-01
 
 ### Added

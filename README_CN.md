@@ -16,7 +16,7 @@
 - ✅ **零配置** - `pip install openclaw-edd && openclaw-edd watch` 即用
 - ✅ **零侵入** - 不需要改 OpenClaw 配置，不需要重启 Gateway
 - ✅ **零依赖** - 核心功能无需任何外部库（PyYAML 可选）
-- ✅ **完整闭环** - watch → run → suggest → apply → diff → mine → export
+- ✅ **完整闭环** - watch → run → suggest → apply → diff → mine → export → review
 
 ## 快速开始
 
@@ -63,6 +63,7 @@ openclaw-edd edd export --format csv --output review.csv
 - **`openclaw-edd edd mine`** - 从历史日志挖掘 golden cases
 - **`openclaw-edd edd judge`** - 用 LLM 对 tool 选择和 output 质量打分
 - **`openclaw-edd edd export`** - 导出 golden dataset（JSONL/CSV）
+- **`openclaw-edd edd review`** - 交互式审查并批准/拒绝挖掘到的 golden cases
 
 ## 详细用法
 
@@ -148,6 +149,19 @@ openclaw-edd edd judge --report report.json --model claude-opus-4-6
 cat docs/JUDGE_COMMAND.md
 ```
 
+### edd review - 交互式审查
+
+```bash
+# 审查挖掘到的 golden dataset，逐条 approve/reject
+openclaw-edd edd review --input mined.jsonl
+
+# 审查结果写入新文件（原文件不变）
+openclaw-edd edd review --input mined.jsonl --output reviewed.jsonl
+
+# 审查后仅运行已批准的用例
+openclaw-edd run --cases reviewed.jsonl --only-approved
+```
+
 ### edd export - 导出 dataset
 
 ```bash
@@ -183,11 +197,19 @@ cases:
       query_metrics:
         time_range: "1h"           # 精确匹配：实际调用必须包含此参数且值相等
         metric: "p99_latency"      # 未指定的参数不检查
+    expect_plan_contains:          # agent 推理/thinking 中必须出现的关键词
+      - "慢查询"
+    pass_at_k: 3                   # 运行 3 次，至少 1 次通过即为 pass
     agent: openclaw_agent
     timeout_s: 30
     tags: [mysql, sre]
     description: "MySQL 慢查询排查基础验证"
 ```
+
+注意：
+- `expect_output_contains` 是 AND 逻辑，列表中**所有**关键词都必须出现（大小写不敏感）。
+- `expect_plan_contains` 同时搜索 agent 的推理文本和 thinking 块，适合验证 agent 的意图而非仅验证行为。
+- `pass_at_k` 让单个用例运行 K 次，至少 1 次通过即为成功。也可用 CLI 的 `--pass-at-k K` 全局覆盖。
 
 ### Eval Type 说明
 

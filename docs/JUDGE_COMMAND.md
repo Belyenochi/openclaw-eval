@@ -28,21 +28,21 @@
 ```bash
 # 使用 Anthropic Claude (默认)
 export ANTHROPIC_API_KEY=your_key
-edd edd judge --report report.json
+openclaw-edd edd judge --report report.json
 
 # 使用 OpenAI GPT-4
 export OPENAI_API_KEY=your_key
-edd edd judge --report report.json --provider openai --model gpt-4o
+openclaw-edd edd judge --report report.json --provider openai --model gpt-4o
 
 # 使用 DeepSeek
 export DEEPSEEK_API_KEY=your_key
-edd edd judge --report report.json --provider deepseek --model deepseek-chat
+openclaw-edd edd judge --report report.json --provider deepseek --model deepseek-chat
 
 # 指定输出文件
-edd edd judge --report report.json --output judged_report.json
+openclaw-edd edd judge --report report.json --output judged_report.json
 
 # 使用不同的 Claude 模型
-edd edd judge --report report.json --model claude-opus-4-6
+openclaw-edd edd judge --report report.json --model claude-opus-4-6
 ```
 
 ## 评估维度
@@ -74,10 +74,10 @@ edd edd judge --report report.json --model claude-opus-4-6
 
 ```bash
 # 1. 运行评测
-edd run --cases cases.yaml --output-json report.json
+openclaw-edd run --cases cases.yaml --output-json report.json
 
 # 2. LLM 评估
-edd edd judge --report report.json --output judged.json
+openclaw-edd edd judge --report report.json --output judged.json
 
 # 3. 查看统计
 cat judged.json | jq '.[] | .llm_judgment.overall_score' | awk '{sum+=$1; count++} END {print "平均分:", sum/count}'

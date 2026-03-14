@@ -69,11 +69,12 @@ openclaw-edd edd diff --before round1.json --after round2.json
 ```
 
 断言优先级建议：
-1. `expect_output_contains` — 最可靠，验证最终结果
+1. `expect_output_contains` — 最可靠，验证最终结果（**AND 逻辑**：列表中所有关键词都必须出现）
 2. `expect_commands` — 白盒验证，确认 agent 执行了正确命令（匹配 `exec` 的 `input.command` 子串）
 3. `forbidden_commands` — 安全护栏
 4. `expect_tools` — 粗粒度检查（`exec`/`read`/`write`）
 5. `forbidden_tools` — 纯聊天场景
+6. `expect_plan_contains` — 验证 agent 推理/thinking 文本（适合支持 thinking 块的模型）
 
 ## Step 7: CI 集成
 ```bash
