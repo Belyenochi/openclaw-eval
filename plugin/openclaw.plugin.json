@@ -1,0 +1,29 @@
+{
+  "id": "openclaw-edd",
+  "name": "EDD (Evaluation-Driven Development)",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "casesDir": {
+        "type": "string",
+        "description": "Override directory for edd.yaml files (default: alongside SKILL.md)"
+      },
+      "reportsDir": {
+        "type": "string",
+        "description": "Override directory for report JSON files"
+      }
+    }
+  },
+  "uiHints": {
+    "casesDir": {
+      "label": "Cases Directory",
+      "placeholder": "<workspace>/skills/<skill>/edd.yaml"
+    },
+    "reportsDir": {
+      "label": "Reports Directory",
+      "placeholder": "<workspace>/edd/reports/"
+    }
+  }
+}

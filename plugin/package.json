@@ -1,0 +1,20 @@
+{
+  "name": "openclaw-edd",
+  "version": "0.1.0",
+  "description": "Evaluation-Driven Development plugin for OpenClaw — save golden cases, catch skill regressions",
+  "type": "module",
+  "main": "src/index.ts",
+  "openclaw": {
+    "extensions": ["./src/index.ts"]
+  },
+  "files": ["src", "openclaw.plugin.json", "README.md"],
+  "peerDependencies": {
+    "openclaw": ">=2026.3.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": ["openclaw-plugin", "openclaw", "evaluation", "golden-test", "edd"],
+  "license": "MIT"
+}
