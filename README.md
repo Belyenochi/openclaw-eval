@@ -6,203 +6,75 @@
 
 [![CI](https://github.com/Belyenochi/openclaw-edd/actions/workflows/ci.yml/badge.svg)](https://github.com/Belyenochi/openclaw-edd/actions)
 [![PyPI version](https://badge.fury.io/py/openclaw-edd.svg)](https://pypi.org/project/openclaw-edd/)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![npm version](https://badge.fury.io/js/openclaw-edd.svg)](https://www.npmjs.com/package/openclaw-edd)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Evaluation-Driven Development toolkit for OpenClaw agents.
-Zero-friction quality gates — session files as the single source of truth.
+Evaluation-Driven Development for OpenClaw agents — save golden cases from real interactions, catch regressions before they reach users.
 
 [中文文档](README_CN.md)
 
-
-## Features
-
-- ✅ **Zero Configuration** - `pip install openclaw-edd && openclaw-edd watch` and go
-- ✅ **Zero Intrusion** - No need to modify OpenClaw config or restart Gateway
-- ✅ **Zero Dependencies** - Core features work without any external libraries (PyYAML optional)
-- ✅ **Complete Loop** - watch → run → suggest → apply → diff → mine → export
-
 ## Quick Start
 
-```bash
-pip install openclaw-edd
+Install the OpenClaw plugin:
 
-# Step 0: See what tools your agent actually uses
-openclaw-edd watch
-
-# Step 1: Run built-in evaluation (6 test cases)
-openclaw-edd run --quickstart --agent main --summary-line
-
-# Step 2: Full EDD loop
-openclaw-edd run --quickstart --agent main --output-json round1.json
-openclaw-edd edd suggest --report round1.json
-# ... fix your agent ...
-openclaw-edd run --quickstart --agent main --output-json round2.json
-openclaw-edd edd diff --before round1.json --after round2.json
+```
+openclaw plugins install openclaw-edd
 ```
 
-📖 **[Complete User Guide](./USER_JOURNEY.md)** — 7-step walkthrough from install to CI integration.
+After a good agent interaction, save it as a golden case:
 
-📖 **[用户路径指南](./USER_JOURNEY_CN.md)** — 从安装到 CI 集成的 7 步完整教程。
+```
+/edd save
+```
 
-## Commands
+After modifying a skill, run all saved cases to check for regressions:
 
-### Core Commands
+```
+/edd
+```
 
-- **watch** - Real-time log monitoring, print tool event stream
-- **trace** - Replay historical event chain
-- **state** - View/modify session state
-- **artifacts** - Manage tool output files
-- **sessions** - List/view historical sessions
-- **run** - Run evaluation test cases
-- **gen-cases** - Generate test case templates
-
-### EDD Loop Commands
-
-- **`openclaw-edd edd suggest`** - Generate improvement suggestions from failed cases
-- **`openclaw-edd edd apply`** - Apply suggestions to workspace
-- **`openclaw-edd edd diff`** - Compare changes between two runs
-- **`openclaw-edd edd mine`** - Mine golden cases from historical logs
-- **`openclaw-edd edd judge`** - LLM-based scoring for tool selection and output quality
-- **`openclaw-edd edd export`** - Export golden dataset (JSONL/CSV)
-- **`openclaw-edd edd review`** - Interactively review and approve/reject mined cases before use
-
+That's it. Cases are stored as human-readable YAML at `<workspace>/skills/<skill>/edd.yaml`.
 
 ## Test Case Format
+
+Cases are saved automatically by `/edd save` and editable by hand:
 
 ```yaml
 cases:
   - id: mysql_slow_query
     message: "Any slow queries in MySQL recently"
-    eval_type: regression          # "regression" (prevent regression) | "capability" (capability climb), default regression
     expect_tools:
       - exec
     expect_commands:
       - "check_health"
-      - "prod-01"
-    expect_commands_ordered:
-      - "check_health"
-      - "query_metrics"
     forbidden_commands:
       - "rm -rf"
-    expect_tools_ordered:
-      - exec
     expect_output_contains:
       - "slow query"
-    forbidden_tools:
-      - exec
-    expect_tool_args:              # Tool argument assertions (White-box evaluation)
-      exec:
-        command: "check_health"    # Substring match for string values
-    expect_plan_contains:          # Keywords that must appear in agent reasoning/thinking
-      - "slow query"
-    pass_at_k: 3                   # Run 3 times; passed if at least 1 attempt succeeds
-    agent: openclaw_agent
     timeout_s: 30
     tags: [mysql, sre]
-    description: "MySQL slow query troubleshooting basic verification"
 ```
 
-Notes:
-- `expect_commands`, `expect_commands_ordered`, and `forbidden_commands` do case-insensitive substring matching on `exec` tool `input.command`.
-- `expect_output_contains` is case-insensitive substring matching. **All** keywords must be present (AND logic).
-- For `expect_tool_args`, string values use case-insensitive substring matching; non-strings use exact match.
-- `expect_plan_contains` searches the agent's reasoning text and thinking blocks (case-insensitive). Useful for validating the agent's intent, not just its actions.
-- `pass_at_k` runs the case K times; the case is marked passed if at least 1 attempt succeeds. Use `--pass-at-k K` on the CLI to override all cases.
+For the full field reference (`pass_at_k`, `expect_tool_args`, `eval_type`, `expect_plan_contains`, etc.), see the [User Guide](./USER_JOURNEY.md).
 
-### Eval Type Explanation
+## CI / CLI Integration
 
-- **regression**: Prevent regression evaluation, starts near 100%, any drop is an alert signal
-- **capability**: Capability climb evaluation, starts with low pass rate, tests what agent can't do yet
-
-Run reports are grouped by eval_type:
-
-```
-📊 Regression Eval (Prevent Regression)
-Passed: 8/10  (80%)  ← Below 100% needs attention
-FAIL: mysql_slow_query, mysql_alert_check
-
-📈 Capability Eval (Capability Climb)
-Passed: 3/8  (37.5%)  ← Normal, this is a climb metric
-PASS: mysql_basic_query ...
-```
-
-## Golden Dataset Format
-
-```json
-{
-  "id": "50a359b5_1",
-  "description": "Extracted from session 50a359b5, 2026-02-28",
-  "source": "mined",
-  "tags": ["mined"],
-  "conversation": [
-    {
-      "turn": 1,
-      "user": "Any slow queries in MySQL recently",
-      "golden_tool_sequence": [
-        {
-          "name": "query_metrics",
-          "args": {"metric": "p99_latency", "time_range": "1h"},
-          "output_summary": "P99 latency 120ms, exceeds threshold"
-        }
-      ],
-      "golden_output": "Detected MySQL slow query, P99 latency 120ms",
-      "assert": [
-        {"type": "tool_called", "value": "query_metrics"},
-        {"type": "tool_args", "tool": "query_metrics", "args": {"metric": "p99_latency", "time_range": "1h"}},
-        {"type": "contains", "value": "slow query"}
-      ]
-    }
-  ],
-  "metadata": {
-    "session_id": "50a359b5-184f-4c73-913d-3b53ebbdf109",
-    "agent": "openclaw_agent",
-    "extracted_at": "2026-02-28T16:00:00",
-    "skill_triggered": "skills/mysql_sre.md"
-  }
-}
-```
-
-## Data Sources
-
-- **Session files**: `~/.openclaw/agents/<agent>/sessions/<session_id>.json` — primary source for `run` / `trace` (tool events, LLM decisions, output)
-- **Log files**: `/tmp/openclaw/openclaw-YYYY-MM-DD.log` — used by `watch`, `mine`, and `export`
-- **State**: `~/.openclaw_eval/state/<session_id>.json` — fallback when session file is unavailable
-- **Artifacts**: `~/.openclaw_eval/artifacts/<session_id>/`
-
-## Workspace Path Resolution
-
-Priority:
-1. `--workspace` parameter
-2. `~/.openclaw/openclaw.json` → `agents.defaults.workspace`
-3. Fallback: `~/.openclaw/workspace`
-
-## Dependencies
+For CI pipelines and local observability, install the Python CLI:
 
 ```bash
 pip install openclaw-edd
+
+# Run cases in CI
+openclaw-edd run --cases edd.yaml --output-json report.json
+
+# Watch live tool events
+openclaw-edd watch
+
+# Mine golden cases from session history
+openclaw-edd edd mine --output mined.yaml
 ```
 
-- **PyYAML** — required for YAML case files (`--cases cases.yaml`)
-- **anthropic** — required for `edd judge` and `edd suggest`
-
-## Platform Support
-
-- **Linux/macOS** - Full support (including daemon mode)
-- **Windows** - All features supported except daemon mode
-
-## CI Integration
-
-```bash
-# Run evaluation
-openclaw-edd run --cases cases.yaml --output-json report.json
-
-# Check exit code
-if [ $? -ne 0 ]; then
-  echo "Evaluation failed"
-  exit 1
-fi
-```
+The plugin and CLI share the same `edd.yaml` format. See the [User Guide](./USER_JOURNEY.md) for the full EDD loop (`suggest` → `apply` → `diff` → `mine` → `judge` → `export`).
 
 ## License
 

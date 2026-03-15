@@ -4,306 +4,77 @@
 
 # openclaw-edd
 
-**Evaluation-Driven Development toolkit for OpenClaw agents**
+[![CI](https://github.com/Belyenochi/openclaw-edd/actions/workflows/ci.yml/badge.svg)](https://github.com/Belyenochi/openclaw-edd/actions)
+[![PyPI version](https://badge.fury.io/py/openclaw-edd.svg)](https://pypi.org/project/openclaw-edd/)
+[![npm version](https://badge.fury.io/js/openclaw-edd.svg)](https://www.npmjs.com/package/openclaw-edd)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+OpenClaw Agent 的评测驱动开发工具 —— 从真实交互中保存 golden cases，在变更上线前捕获退步。
 
 [English Documentation](README.md)
-完整使用指南（中文）：[USER_JOURNEY_CN.md](./USER_JOURNEY_CN.md)
-零摩擦 EDD 工具包，不侵入 OpenClaw 本体，唯一数据源是日志文件。
-
-## 特性
-
-- ✅ **零配置** - `pip install openclaw-edd && openclaw-edd watch` 即用
-- ✅ **零侵入** - 不需要改 OpenClaw 配置，不需要重启 Gateway
-- ✅ **零依赖** - 核心功能无需任何外部库（PyYAML 可选）
-- ✅ **完整闭环** - watch → run → suggest → apply → diff → mine → export → review
 
 ## 快速开始
 
-```bash
-# 安装
-pip install openclaw-edd
+安装 OpenClaw 插件：
 
-# 实时观测
-openclaw-edd watch
-
-# 标准 EDD 闭环
-openclaw-edd run --cases cases.yaml --output-json report_v1.json
-openclaw-edd edd suggest --report report_v1.json > suggestion.txt
-openclaw-edd edd apply --suggestion-file suggestion.txt
-openclaw-edd run --cases cases.yaml --output-json report_v2.json
-openclaw-edd edd diff --before report_v1.json --after report_v2.json
-
-# 从生产日志挖掘 golden cases
-openclaw-edd edd mine --output mined_cases.yaml
-openclaw-edd run --cases mined_cases.yaml --output-json regression.json
-
-# 导出 golden dataset
-openclaw-edd edd export --output golden.jsonl
-openclaw-edd edd export --format csv --output review.csv
+```
+openclaw plugins install openclaw-edd
 ```
 
-## 命令列表
+遇到一次好的 agent 交互后，将其保存为 golden case：
 
-### 核心命令
-
-- **watch** - 实时监听日志，打印 tool 事件流
-- **trace** - 回放历史事件链
-- **state** - 查看/修改 session 状态
-- **artifacts** - 管理 tool 输出文件
-- **sessions** - 列出/查看历史 session
-- **run** - 运行评测用例集
-- **gen-cases** - 生成用例模板
-
-### EDD 闭环命令
-
-- **`openclaw-edd edd suggest`** - 从失败 cases 生成修改建议
-- **`openclaw-edd edd apply`** - 应用建议到 workspace
-- **`openclaw-edd edd diff`** - 对比两次 run 的变化
-- **`openclaw-edd edd mine`** - 从历史日志挖掘 golden cases
-- **`openclaw-edd edd judge`** - 用 LLM 对 tool 选择和 output 质量打分
-- **`openclaw-edd edd export`** - 导出 golden dataset（JSONL/CSV）
-- **`openclaw-edd edd review`** - 交互式审查并批准/拒绝挖掘到的 golden cases
-
-## 详细用法
-
-### watch - 实时监听
-
-```bash
-# 基本用法
-openclaw-edd watch
-
-# 过滤特定 session
-openclaw-edd watch --session <session_id前缀>
-
-# 从文件头读（回放今天历史）
-openclaw-edd watch --from-start
-
-# 后台运行
-openclaw-edd watch --daemon
-kill $(cat /tmp/openclaw_edd_watch.pid)
+```
+/edd save
 ```
 
-### run - 运行评测
+修改 skill 后，运行所有已保存的用例检查是否退步：
 
-```bash
-# 使用内置 quickstart 用例（6 个场景，推荐新手）
-openclaw-edd run --quickstart --agent main
-
-# 使用自定义用例
-openclaw-edd run --cases cases.yaml
-
-# 过滤 tags
-openclaw-edd run --cases cases.yaml --tags smoke mysql
-
-# 单个用例（命令行指定）
-openclaw-edd run --case "今天上海天气" --expect-tools get_weather
-
-# 显示详细的工具调用 trace
-openclaw-edd run --cases cases.yaml --show-trace
-
-# 使用 --local 模式（确保日志写入本地）
-openclaw-edd run --cases cases.yaml --agent main --local
-
-# 输出报告
-openclaw-edd run --output-json report.json
-openclaw-edd run --output-html report.html
-
-# Dry run（不发消息，只解析日志）
-openclaw-edd run --dry-run
+```
+/edd
 ```
 
-### edd suggest - 生成建议
-
-```bash
-openclaw-edd edd suggest --report report.json
-openclaw-edd edd suggest --report report.json --workspace ~/.openclaw/workspace
-openclaw-edd edd suggest --report report.json > suggestion.txt
-```
-
-### edd diff - 对比变化
-
-```bash
-openclaw-edd edd diff --before report_v1.json --after report_v2.json
-openclaw-edd edd diff --before report_v1.json --after report_v2.json --format json
-```
-
-### edd mine - 挖掘用例
-
-```bash
-openclaw-edd edd mine
-openclaw-edd edd mine --output mined_cases.yaml
-openclaw-edd edd mine --min-tools 2
-```
-
-### edd judge - LLM 评估
-
-```bash
-# 使用 LLM 对测试结果进行智能评估
-export ANTHROPIC_API_KEY=your_key
-openclaw-edd edd judge --report report.json
-openclaw-edd edd judge --report report.json --output judged_report.json
-openclaw-edd edd judge --report report.json --model claude-opus-4-6
-
-# 查看详细文档
-cat docs/JUDGE_COMMAND.md
-```
-
-### edd review - 交互式审查
-
-```bash
-# 审查挖掘到的 golden dataset，逐条 approve/reject
-openclaw-edd edd review --input mined.jsonl
-
-# 审查结果写入新文件（原文件不变）
-openclaw-edd edd review --input mined.jsonl --output reviewed.jsonl
-
-# 审查后仅运行已批准的用例
-openclaw-edd run --cases reviewed.jsonl --only-approved
-```
-
-### edd export - 导出 dataset
-
-```bash
-# 导出 JSONL
-openclaw-edd edd export --output golden.jsonl
-
-# 结合 run report 补充更准确的 golden_output
-openclaw-edd run --cases cases.yaml --output-json report.json
-openclaw-edd edd export --merge-report report.json --output golden.jsonl
-
-# 导出 CSV 给专家人工审查
-openclaw-edd edd export --format csv --output review.csv
-```
+就这些。用例以可读的 YAML 格式保存在 `<workspace>/skills/<skill>/edd.yaml`。
 
 ## 用例格式
+
+用例由 `/edd save` 自动生成，也可以手动编辑：
 
 ```yaml
 cases:
   - id: mysql_slow_query
     message: "MySQL 最近有慢查询吗"
-    eval_type: regression          # "regression" (防退步) | "capability" (能力爬坡)，默认 regression
     expect_tools:
-      - query_metrics
-      - get_alerts
-    expect_tools_ordered:
-      - query_metrics
-      - get_alerts
+      - exec
+    expect_commands:
+      - "check_health"
+    forbidden_commands:
+      - "rm -rf"
     expect_output_contains:
       - "慢查询"
-    forbidden_tools:
-      - execute_sql
-    expect_tool_args:              # 工具参数断言（White-box 评测）
-      query_metrics:
-        time_range: "1h"           # 精确匹配：实际调用必须包含此参数且值相等
-        metric: "p99_latency"      # 未指定的参数不检查
-    expect_plan_contains:          # agent 推理/thinking 中必须出现的关键词
-      - "慢查询"
-    pass_at_k: 3                   # 运行 3 次，至少 1 次通过即为 pass
-    agent: openclaw_agent
     timeout_s: 30
     tags: [mysql, sre]
-    description: "MySQL 慢查询排查基础验证"
 ```
 
-注意：
-- `expect_output_contains` 是 AND 逻辑，列表中**所有**关键词都必须出现（大小写不敏感）。
-- `expect_plan_contains` 同时搜索 agent 的推理文本和 thinking 块，适合验证 agent 的意图而非仅验证行为。
-- `pass_at_k` 让单个用例运行 K 次，至少 1 次通过即为成功。也可用 CLI 的 `--pass-at-k K` 全局覆盖。
+完整字段说明（`pass_at_k`、`expect_tool_args`、`eval_type`、`expect_plan_contains` 等）见[用户指南](./USER_JOURNEY_CN.md)。
 
-### Eval Type 说明
+## CI / CLI 集成
 
-- **regression**: 防退步评测，从接近 100% 开始，任何下降都是报警信号
-- **capability**: 能力爬坡评测，从低通过率开始，用来测试 agent 还不会做的事
-
-运行报告会按 eval_type 分组显示：
-
-```
-📊 Regression Eval（防退步）
-通过: 8/10  (80%)  ← 低于 100% 需要关注
-FAIL: mysql_slow_query, mysql_alert_check
-
-📈 Capability Eval（能力爬坡）
-通过: 3/8  (37.5%)  ← 正常，这是爬坡指标
-PASS: mysql_basic_query ...
-```
-
-## Golden Dataset 格式
-
-```json
-{
-  "id": "50a359b5_1",
-  "description": "从 session 50a359b5 提取，2026-02-28",
-  "source": "mined",
-  "tags": ["mined"],
-  "conversation": [
-    {
-      "turn": 1,
-      "user": "MySQL 最近有慢查询吗",
-      "golden_tool_sequence": [
-        {
-          "name": "query_metrics",
-          "args": {"metric": "p99_latency", "time_range": "1h"},
-          "output_summary": "P99 延迟 120ms，超过阈值"
-        }
-      ],
-      "golden_output": "检测到 MySQL 慢查询，P99 延迟 120ms",
-      "assert": [
-        {"type": "tool_called", "value": "query_metrics"},
-        {"type": "tool_args", "tool": "query_metrics", "args": {"metric": "p99_latency", "time_range": "1h"}},
-        {"type": "contains", "value": "慢查询"}
-      ]
-    }
-  ],
-  "metadata": {
-    "session_id": "50a359b5-184f-4c73-913d-3b53ebbdf109",
-    "agent": "openclaw_agent",
-    "extracted_at": "2026-02-28T16:00:00",
-    "skill_triggered": "skills/mysql_sre.md"
-  }
-}
-```
-
-## 数据源
-
-- **Session 文件**: `~/.openclaw/agents/<agent>/sessions/<session_id>.json` — `run` / `trace` 的主要数据源（工具事件、LLM 决策、输出）
-- **日志文件**: `/tmp/openclaw/openclaw-YYYY-MM-DD.log` — `watch`、`mine`、`export` 使用
-- **State**: `~/.openclaw_eval/state/<session_id>.json` — session 文件不可用时的回退
-- **Artifacts**: `~/.openclaw_eval/artifacts/<session_id>/`
-
-## Workspace 路径解析
-
-优先级：
-1. `--workspace` 参数
-2. `~/.openclaw/openclaw.json` → `agents.defaults.workspace`
-3. Fallback: `~/.openclaw/workspace`
-
-## 依赖说明
+CI 流水线和本地可观测性，安装 Python CLI：
 
 ```bash
 pip install openclaw-edd
+
+# 在 CI 中运行用例
+openclaw-edd run --cases edd.yaml --output-json report.json
+
+# 实时监听工具事件
+openclaw-edd watch
+
+# 从历史 session 挖掘 golden cases
+openclaw-edd edd mine --output mined.yaml
 ```
 
-- **PyYAML** — YAML 格式用例文件所需（`--cases cases.yaml`）
-- **anthropic** — `edd judge` 和 `edd suggest` 所需
-
-## 平台支持
-
-- **Linux/macOS** - 完整支持（包括 daemon 模式）
-- **Windows** - 支持除 daemon 外的所有功能
-
-## CI 集成
-
-```bash
-# 运行评测
-openclaw-edd run --cases cases.yaml --output-json report.json
-
-# 检查退出码
-if [ $? -ne 0 ]; then
-  echo "评测失败"
-  exit 1
-fi
-```
+插件和 CLI 共享同一套 `edd.yaml` 格式。完整 EDD 闭环（`suggest` → `apply` → `diff` → `mine` → `judge` → `export`）见[用户指南](./USER_JOURNEY_CN.md)。
 
 ## License
 
