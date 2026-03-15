@@ -18,9 +18,11 @@ export default function register(api: any) {
     acceptsArgs: true,
     handler: async (ctx: any) => {
       const args = (ctx.args || "").trim();
+      const parts = args.split(/\s+/);
 
-      if (args === "save") {
-        return saveCommand(api, ctx, latestSession);
+      if (parts[0] === "save") {
+        const skillName = parts[1] || "default";
+        return saveCommand(api, ctx, latestSession, skillName);
       }
 
       return runCommand(api, ctx);

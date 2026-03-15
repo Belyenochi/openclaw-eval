@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import yaml from "js-yaml";
 
 export interface GoldenCase {
   id: string;
@@ -22,7 +23,8 @@ export function loadCases(filePath: string): GoldenCase[] {
   const content = fs.readFileSync(filePath, "utf-8");
 
   try {
-    return parseEddYaml(content);
+    const doc = yaml.load(content) as { cases?: GoldenCase[] };
+    return doc?.cases ?? [];
   } catch {
     return [];
   }
@@ -55,84 +57,6 @@ export function appendCase(workspace: string, skillName: string, newCase: Golden
 }
 
 function writeCases(filePath: string, cases: GoldenCase[]): void {
-  const lines: string[] = ["cases:"];
-
-  for (const c of cases) {
-    lines.push(`  - id: ${c.id}`);
-    lines.push(`    message: "${escapeYaml(c.message)}"`);
-
-    if (c.expect_tools?.length) {
-      lines.push(`    expect_tools:`);
-      for (const t of c.expect_tools) lines.push(`      - ${t}`);
-    }
-
-    if (c.expect_commands?.length) {
-      lines.push(`    expect_commands:`);
-      for (const cmd of c.expect_commands) lines.push(`      - "${escapeYaml(cmd)}"`);
-    }
-
-    if (c.expect_output_contains?.length) {
-      lines.push(`    expect_output_contains:`);
-      for (const phrase of c.expect_output_contains) lines.push(`      - "${escapeYaml(phrase)}"`);
-    }
-
-    if (c.forbidden_commands?.length) {
-      lines.push(`    forbidden_commands:`);
-      for (const cmd of c.forbidden_commands) lines.push(`      - "${escapeYaml(cmd)}"`);
-    }
-
-    if (c.source) lines.push(`    source: ${c.source}`);
-    if (c.timestamp) lines.push(`    timestamp: ${c.timestamp}`);
-  }
-
-  fs.writeFileSync(filePath, lines.join("\n") + "\n", "utf-8");
-}
-
-function escapeYaml(s: string): string {
-  return s.replace(/"/g, '\\"');
-}
-
-function parseEddYaml(content: string): GoldenCase[] {
-  // Minimal YAML parser for the structure we write
-  // This is intentionally simple — handles only edd.yaml format
-  // For robustness, consider importing a YAML lib in later versions
-
-  const cases: GoldenCase[] = [];
-  let current: Partial<GoldenCase> | null = null;
-  let currentArrayKey: string | null = null;
-
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed === "cases:") continue;
-
-    if (trimmed.startsWith("- id:")) {
-      if (current) cases.push(current as GoldenCase);
-      current = { id: trimmed.replace("- id:", "").trim() };
-      currentArrayKey = null;
-      continue;
-    }
-
-    if (!current) continue;
-
-    const kvMatch = trimmed.match(/^(\w+):\s*(.+)$/);
-    if (kvMatch && !trimmed.startsWith("- ")) {
-      currentArrayKey = null;
-      const [, key, val] = kvMatch;
-      if (["expect_tools", "expect_commands", "expect_output_contains", "forbidden_commands", "expect_commands_ordered", "forbidden_tools", "tags"].includes(key)) {
-        currentArrayKey = key;
-        (current as any)[key] = [];
-      } else {
-        (current as any)[key] = val.replace(/^"|"$/g, "");
-      }
-      continue;
-    }
-
-    if (trimmed.startsWith("- ") && currentArrayKey && current) {
-      const val = trimmed.replace(/^- /, "").replace(/^"|"$/g, "");
-      ((current as any)[currentArrayKey] as string[]).push(val);
-    }
-  }
-
-  if (current) cases.push(current as GoldenCase);
-  return cases;
+  const content = yaml.dump({ cases }, { lineWidth: -1 });
+  fs.writeFileSync(filePath, content, "utf-8");
 }

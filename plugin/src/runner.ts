@@ -97,6 +97,9 @@ async function sendTestMessage(
 ): Promise<{ toolCalls: any[]; output: string }> {
   const sessionKey = `edd-test-${caseId}-${Date.now()}`;
 
+  api.logger?.info?.(`[edd:runner] api.runtime keys: ${Object.keys(api.runtime || {}).join(', ')}`);
+  api.logger?.info?.(`[edd:runner] api.runtime.subagent: ${typeof api.runtime?.subagent}`);
+
   // 1. Send message to isolated session
   const { runId } = await api.runtime.subagent.run({
     sessionKey,

@@ -5,7 +5,8 @@ import { resolveWorkspace } from "../workspace.js";
 export async function saveCommand(
   api: any,
   ctx: any,
-  latestSession: { sessionId?: string; sessionKey?: string; agentId?: string }
+  latestSession: { sessionId?: string; sessionKey?: string; agentId?: string },
+  skillName: string = "default"
 ): Promise<{ text: string }> {
   const workspace = resolveWorkspace(api);
   const { sessionId, agentId } = latestSession;
@@ -41,7 +42,6 @@ export async function saveCommand(
     source: "saved",
   };
 
-  const skillName = detectSkillName(lastTurn) || "default";
   const casesPath = appendCase(workspace, skillName, goldenCase);
 
   return {
@@ -65,6 +65,3 @@ function extractCommands(toolCalls: any[]): string[] {
     .map(tc => tc.args.command);
 }
 
-function detectSkillName(_turn: any): string | null {
-  return null;
-}

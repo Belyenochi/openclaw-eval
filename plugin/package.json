@@ -5,16 +5,32 @@
   "type": "module",
   "main": "src/index.ts",
   "openclaw": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
-  "files": ["src", "openclaw.plugin.json", "README.md"],
+  "files": [
+    "src",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
   "peerDependencies": {
     "openclaw": ">=2026.3.7"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "typescript": "^5.3.0"
   },
-  "keywords": ["openclaw-plugin", "openclaw", "evaluation", "golden-test", "edd"],
-  "license": "MIT"
+  "keywords": [
+    "openclaw-plugin",
+    "openclaw",
+    "evaluation",
+    "golden-test",
+    "edd"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^4.1.1"
+  }
 }
