@@ -30,6 +30,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Node
+node_modules/
+
 # Project-specific
 *.idx
 report_*.json
