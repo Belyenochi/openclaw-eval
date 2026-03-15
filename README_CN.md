@@ -92,4 +92,4 @@ openclaw-edd edd mine --output mined.yaml
 
 ## License
 
-MIT
+MIT — 详见 [LICENSE](LICENSE)。

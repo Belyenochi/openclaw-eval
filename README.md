@@ -102,4 +102,4 @@ Questions, ideas, and pull requests are welcome. If something doesn't work or co
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
