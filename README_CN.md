@@ -13,6 +13,16 @@ OpenClaw Agent 的评测驱动开发工具 —— 从真实交互中保存 golde
 
 [English Documentation](README.md)
 
+## 设计理念
+
+**插件 —— Golden cases 从真实使用中生长，而非事先捏造。**
+
+传统测试从想象的场景出发。但 Agent 的行为空间太大，难以预判它会选择哪些工具、以何种顺序调用、输出什么内容。插件将这个逻辑倒过来：正常使用你的 agent，当一次交互结果令人满意时，用 `/edd save` 将这一轮快照为 golden case。测试用例是真实行为的录像，而不是猜测。修改 skill 后，`/edd` 回放这些录像，告诉你好的行为是否还在。
+
+**CLI —— 信任来自可复现的证据，而非一次性的人工检查。**
+
+插件解决的是"我改了 skill，有没有破坏什么？"；CLI 解决的是"为什么别人应该相信这个 skill 是可靠的？"同一份 `edd.yaml`——用 `/edd save` 交互式构建——通过 `openclaw-edd run` 在 CI 中无人值守地运行。回归了 golden case 的 PR 会被阻断。Skill 质量不再依赖"作者说它能用"，而是依赖可重复的证明。
+
 ## 快速开始
 
 安装 OpenClaw 插件：

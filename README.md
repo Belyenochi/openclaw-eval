@@ -13,6 +13,27 @@ Evaluation-Driven Development for OpenClaw agents — save golden cases from rea
 
 [中文文档](README_CN.md)
 
+## Design Philosophy
+
+**Plugin — Golden cases grow from real usage, not upfront speculation.**
+
+Traditional testing starts with imagined scenarios. But an Agent's
+behavior space is too large to predict which tools it will pick,
+in what order, or what output it will produce. The plugin inverts
+this: use your agent normally, and when a result is good, `/edd save`
+snapshots that turn as a golden case. Test cases are recordings of
+real behavior, not guesses. After editing a skill, `/edd` replays
+those recordings and tells you whether the good behaviors survived.
+
+**CLI — Trust comes from reproducible evidence, not one-off manual checks.**
+
+The plugin solves "I changed my skill, did I break something?" The
+CLI solves "why should anyone else trust that this skill works?" The
+same `edd.yaml` — built interactively with `/edd save` — runs unattended
+in CI via `openclaw-edd run`. A PR that regresses a golden case gets
+blocked. Skill quality stops depending on "the author says it works"
+and starts depending on repeatable proof.
+
 ## Quick Start
 
 Install the OpenClaw plugin:
