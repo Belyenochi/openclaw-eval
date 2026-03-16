@@ -15,6 +15,14 @@ Evaluation-Driven Development for OpenClaw agents — save golden cases from rea
 
 ## Design Philosophy
 
+**CLI — Trust comes from reproducible evidence, not one-off manual checks.**
+
+The plugin solves "I changed my skill, did I break something?" The
+CLI takes that further: the same `edd.yaml` runs anywhere — a local
+terminal session, a team review, or a CI pipeline. Skill quality
+stops depending on "the author says it works" and starts depending
+on repeatable proof that anyone can run.
+
 **Plugin — Golden cases grow from real usage, not upfront speculation.**
 
 Traditional testing starts with imagined scenarios. But an Agent's
@@ -25,35 +33,16 @@ snapshots that turn as a golden case. Test cases are recordings of
 real behavior, not guesses. After editing a skill, `/edd` replays
 those recordings and tells you whether the good behaviors survived.
 
-**CLI — Trust comes from reproducible evidence, not one-off manual checks.**
-
-The plugin solves "I changed my skill, did I break something?" The
-CLI takes that further: the same `edd.yaml` runs anywhere — a local
-terminal session, a team review, or a CI pipeline. Skill quality
-stops depending on "the author says it works" and starts depending
-on repeatable proof that anyone can run.
-
 ## Quick Start
 
-Install the OpenClaw plugin:
+```bash
+pip install openclaw-edd
 
-```
-openclaw plugins install openclaw-edd
-```
-
-After a good agent interaction, save it as a golden case:
-
-```
-/edd save
+openclaw-edd watch                          # see what tools your agent actually uses
+openclaw-edd run --quickstart --agent main  # run 6 built-in cases against your agent
 ```
 
-After modifying a skill, run all saved cases to check for regressions:
-
-```
-/edd
-```
-
-That's it. Cases are stored as human-readable YAML at `<workspace>/skills/<skill>/edd.yaml`.
+See the [User Guide](./USER_JOURNEY.md) for the full walkthrough.
 
 ## Test Case Format
 
@@ -77,24 +66,58 @@ cases:
 
 For the full field reference (`pass_at_k`, `expect_tool_args`, `eval_type`, `expect_plan_contains`, etc.), see the [User Guide](./USER_JOURNEY.md).
 
-## CI / CLI Integration
-
-For CI pipelines and local observability, install the Python CLI:
+## CLI
 
 ```bash
 pip install openclaw-edd
-
-# Run cases in CI
-openclaw-edd run --cases edd.yaml --output-json report.json
-
-# Watch live tool events
-openclaw-edd watch
-
-# Mine golden cases from session history
-openclaw-edd edd mine --output mined.yaml
 ```
 
-The plugin and CLI share the same `edd.yaml` format. See the [User Guide](./USER_JOURNEY.md) for the full EDD loop (`suggest` → `apply` → `diff` → `mine` → `judge` → `export`).
+**Core**
+
+```bash
+openclaw-edd watch                                              # watch live tool events
+openclaw-edd run --cases edd.yaml --output-json report.json    # run your cases
+openclaw-edd run --quickstart --agent main --summary-line      # run 6 built-in cases
+openclaw-edd sessions                                           # list historical sessions
+openclaw-edd trace                                              # replay event chain
+openclaw-edd gen-cases                                          # generate case templates
+```
+
+**EDD Loop**
+
+```bash
+openclaw-edd edd mine --output mined.yaml                       # mine cases from session history
+openclaw-edd edd review --input mined.yaml                      # interactively approve/reject mined cases
+openclaw-edd edd suggest --report report.json                   # generate improvement suggestions
+openclaw-edd edd apply                                          # apply suggestions to workspace
+openclaw-edd edd diff --before round1.json --after round2.json  # compare runs
+openclaw-edd edd judge --report report.json                     # LLM-based scoring
+openclaw-edd edd export --input golden.jsonl --format csv       # export golden dataset
+```
+
+The plugin and CLI share the same `edd.yaml` format. See the [User Guide](./USER_JOURNEY.md) for the full walkthrough.
+
+## OpenClaw Plugin
+
+If you use [OpenClaw](https://github.com/Belyenochi/openclaw), the plugin gives you golden case management directly inside the chat interface.
+
+```
+openclaw plugins install openclaw-edd
+```
+
+After a good agent interaction, save it as a golden case:
+
+```
+/edd save
+```
+
+After editing a skill, replay all saved cases and check for regressions:
+
+```
+/edd
+```
+
+Cases are stored as human-readable YAML at `<workspace>/skills/<skill>/edd.yaml` — the same format the CLI reads.
 
 ## Contributing
 
