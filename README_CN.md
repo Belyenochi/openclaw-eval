@@ -32,7 +32,7 @@ openclaw-edd watch                          # 查看 agent 实际调用了哪些
 openclaw-edd run --quickstart --agent main  # 运行 6 个内置用例
 ```
 
-完整流程见[用户指南](./USER_JOURNEY_CN.md)。
+完整流程见[用户指南](./docs/USER_JOURNEY_CN.md)。
 
 ## 用例格式
 
@@ -54,7 +54,7 @@ cases:
     tags: [mysql, sre]
 ```
 
-完整字段说明（`pass_at_k`、`expect_tool_args`、`eval_type`、`expect_plan_contains` 等）见[用户指南](./USER_JOURNEY_CN.md)。
+完整字段说明（`pass_at_k`、`expect_tool_args`、`eval_type`、`expect_plan_contains` 等）见[用户指南](./docs/USER_JOURNEY_CN.md)。
 
 ## CLI
 
@@ -85,7 +85,7 @@ openclaw-edd edd judge --report report.json                     # LLM 评分
 openclaw-edd edd export --input golden.jsonl --format csv       # 导出 golden dataset
 ```
 
-插件和 CLI 共享同一套 `edd.yaml` 格式。完整流程见[用户指南](./USER_JOURNEY_CN.md)。
+插件和 CLI 共享同一套 `edd.yaml` 格式。完整流程见[用户指南](./docs/USER_JOURNEY_CN.md)。
 
 ## OpenClaw 插件
 

@@ -42,7 +42,7 @@ openclaw-edd watch                          # see what tools your agent actually
 openclaw-edd run --quickstart --agent main  # run 6 built-in cases against your agent
 ```
 
-See the [User Guide](./USER_JOURNEY.md) for the full walkthrough.
+See the [User Guide](./docs/USER_JOURNEY.md) for the full walkthrough.
 
 ## Test Case Format
 
@@ -64,7 +64,7 @@ cases:
     tags: [mysql, sre]
 ```
 
-For the full field reference (`pass_at_k`, `expect_tool_args`, `eval_type`, `expect_plan_contains`, etc.), see the [User Guide](./USER_JOURNEY.md).
+For the full field reference (`pass_at_k`, `expect_tool_args`, `eval_type`, `expect_plan_contains`, etc.), see the [User Guide](./docs/USER_JOURNEY.md).
 
 ## CLI
 
@@ -95,7 +95,7 @@ openclaw-edd edd judge --report report.json                     # LLM-based scor
 openclaw-edd edd export --input golden.jsonl --format csv       # export golden dataset
 ```
 
-The plugin and CLI share the same `edd.yaml` format. See the [User Guide](./USER_JOURNEY.md) for the full walkthrough.
+The plugin and CLI share the same `edd.yaml` format. See the [User Guide](./docs/USER_JOURNEY.md) for the full walkthrough.
 
 ## OpenClaw Plugin
 
