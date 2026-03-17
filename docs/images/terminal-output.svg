@@ -1,4 +1,4 @@
-<svg width="720" height="780" viewBox="0 0 720 780" xmlns="http://www.w3.org/2000/svg">
+<svg width="720" height="860" viewBox="0 0 720 860" xmlns="http://www.w3.org/2000/svg">
   <style>
     .bg { fill:#1a1b26; }
     .bar { fill:#16161e; }
@@ -9,73 +9,82 @@
     .grn { fill:#73daca; }
     .red { fill:#f7768e; }
     .yel { fill:#e0af68; }
+    .wh { fill:#c0caf5; }
     .btxt { fill:#565f89; font-family:'SF Mono','Fira Code','Cascadia Code',Menlo,Consolas,monospace; font-size:11px; }
+    .step { fill:#414868; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:12px; font-weight:600; }
   </style>
 
-  <!-- Terminal 1: /edd save (Plugin) -->
-  <rect x="0" y="0" width="720" height="200" rx="10" class="bg"/>
-  <rect x="0" y="0" width="720" height="30" rx="10" class="bar"/>
-  <rect x="0" y="20" width="720" height="10" class="bar"/>
-  <circle cx="18" cy="15" r="6" fill="#ff5f57"/>
-  <circle cx="38" cy="15" r="6" fill="#febc2e"/>
-  <circle cx="58" cy="15" r="6" fill="#28c840"/>
-  <text class="btxt" x="360" y="19" text-anchor="middle">OpenClaw Chat — /edd save</text>
+  <!-- Step label 1 -->
+  <text class="step" x="16" y="16">① Good interaction → /edd save</text>
+
+  <!-- Terminal 1: /edd save -->
+  <rect x="0" y="26" width="720" height="186" rx="10" class="bg"/>
+  <rect x="0" y="26" width="720" height="28" rx="10" class="bar"/>
+  <rect x="0" y="46" width="720" height="8" class="bar"/>
+  <circle cx="16" cy="40" r="5" fill="#ff5f57"/>
+  <circle cx="32" cy="40" r="5" fill="#febc2e"/>
+  <circle cx="48" cy="40" r="5" fill="#28c840"/>
+  <text class="btxt" x="360" y="43" text-anchor="middle">OpenClaw — mysql-sre agent</text>
 
   <g class="d">
-    <text x="16" y="56"><tspan class="dim">user:</tspan> Any slow queries in MySQL recently?</text>
-    <text x="16" y="78"><tspan class="dim">agent:</tspan> <tspan class="grn">✓ exec</tspan> → query_metrics → <tspan class="grn">"P99 latency 120ms, exceeds threshold"</tspan></text>
-    <text x="16" y="104"><tspan class="dim">user:</tspan> <tspan class="pur">/edd save mysql-sre</tspan></text>
-    <text x="16" y="130"><tspan class="grn">✅ Saved golden case for skill "mysql-sre"</tspan></text>
-    <text x="16" y="150">   Message: "Any slow queries in MySQL recently?"</text>
-    <text x="16" y="170">   Expected tools: <tspan class="blu">exec, query_metrics</tspan></text>
-    <text x="16" y="190">   Saved to: <tspan class="dim">skills/mysql-sre/edd.yaml</tspan></text>
+    <text x="16" y="74"><tspan class="dim">user</tspan><tspan class="wh">  MySQL 最近有慢查询吗？</tspan></text>
+    <text x="16" y="96"><tspan class="dim">agent</tspan> <tspan class="grn">exec</tspan>(check_health prod-01) → <tspan class="grn">query_metrics</tspan>(p99_latency 1h)</text>
+    <text x="16" y="116"><tspan class="dim">     </tspan> <tspan class="wh">"检测到慢查询，P99 延迟 120ms，超过阈值"</tspan></text>
+    <text x="16" y="146"><tspan class="dim">user</tspan><tspan class="pur">  /edd save mysql-sre</tspan></text>
+    <text x="16" y="170"><tspan class="grn">✅ Saved golden case for skill "mysql-sre"</tspan></text>
+    <text x="16" y="190">   Expected tools: <tspan class="blu">exec, query_metrics</tspan>  Saved to: <tspan class="dim">skills/mysql-sre/edd.yaml</tspan></text>
   </g>
 
-  <!-- Terminal 2: CLI run -->
-  <rect x="0" y="218" width="720" height="330" rx="10" class="bg"/>
-  <rect x="0" y="218" width="720" height="30" rx="10" class="bar"/>
-  <rect x="0" y="238" width="720" height="10" class="bar"/>
-  <circle cx="18" cy="233" r="6" fill="#ff5f57"/>
-  <circle cx="38" cy="233" r="6" fill="#febc2e"/>
-  <circle cx="58" cy="233" r="6" fill="#28c840"/>
-  <text class="btxt" x="360" y="237" text-anchor="middle">openclaw-edd run --cases skills/*/edd.yaml --agent main</text>
+  <!-- Step label 2 -->
+  <text class="step" x="16" y="234">② Edit skill → /edd catches regression</text>
+
+  <!-- Terminal 2: /edd run via plugin -->
+  <rect x="0" y="244" width="720" height="244" rx="10" class="bg"/>
+  <rect x="0" y="244" width="720" height="28" rx="10" class="bar"/>
+  <rect x="0" y="264" width="720" height="8" class="bar"/>
+  <circle cx="16" cy="258" r="5" fill="#ff5f57"/>
+  <circle cx="32" cy="258" r="5" fill="#febc2e"/>
+  <circle cx="48" cy="258" r="5" fill="#28c840"/>
+  <text class="btxt" x="360" y="261" text-anchor="middle">OpenClaw — /edd</text>
 
   <g class="d">
-    <text x="16" y="270"><tspan class="dim">$</tspan> <tspan class="blu">openclaw-edd</tspan> run --cases skills/*/edd.yaml --agent main</text>
-    <text x="16" y="296" class="pur">⚡ openclaw-edd v0.4.3</text>
-    <text x="16" y="312" class="dim">─────────────────────────────────────────────────────</text>
-    <text x="16" y="332" class="blu">📋 Loading 5 cases from 2 skills...</text>
-
-    <text x="16" y="358"><tspan class="grn">✓ PASS</tspan>  mysql_slow_query          <tspan class="dim">tools: exec→query_metrics  (2.1s)</tspan></text>
-    <text x="16" y="378"><tspan class="grn">✓ PASS</tspan>  mysql_connection_pool     <tspan class="dim">tools: exec→check_health   (1.8s)</tspan></text>
-    <text x="16" y="398"><tspan class="red">✗ FAIL</tspan>  mysql_replication_lag     <tspan class="dim">tools: exec                (3.2s)</tspan></text>
-    <text x="80" y="416" class="red">missing tool: query_metrics</text>
-    <text x="16" y="436"><tspan class="grn">✓ PASS</tspan>  redis_memory_alert        <tspan class="dim">tools: exec→alert_check    (1.5s)</tspan></text>
-    <text x="16" y="456"><tspan class="grn">✓ PASS</tspan>  network_latency_check     <tspan class="dim">tools: exec→ping           (1.2s)</tspan></text>
-
-    <text x="16" y="478" class="dim">─────────────────────────────────────────────────────</text>
-    <text x="16" y="498"><tspan class="pur">📊 Results:</tspan> Passed: <tspan class="grn">4/5</tspan>  (<tspan class="yel">80%</tspan>)  <tspan class="red">← 1 regression</tspan></text>
-    <text x="16" y="518" class="dim">   FAIL: mysql_replication_lag</text>
-    <text x="16" y="538"><tspan class="blu">💡 Next:</tspan> openclaw-edd edd suggest --report report.json</text>
+    <text x="16" y="292"><tspan class="dim">user</tspan><tspan class="pur">  /edd</tspan></text>
+    <text x="16" y="320"><tspan class="pur">🧪 EDD: 2/3 passed — 1 regression(s)</tspan></text>
+    <text x="16" y="348">  <tspan class="grn">✅</tspan> "MySQL 最近有慢查询吗" <tspan class="grn">passed</tspan> <tspan class="dim">(2340ms)</tspan></text>
+    <text x="16" y="370">  <tspan class="grn">✅</tspan> "检查连接池状态" <tspan class="grn">passed</tspan> <tspan class="dim">(1820ms)</tspan></text>
+    <text x="16" y="392">  <tspan class="red">❌</tspan> "主从复制延迟多少" <tspan class="red">failed</tspan> <tspan class="yel">⚠️ REGRESSION</tspan> <tspan class="dim">(3210ms)</tspan></text>
+    <text x="16" y="412">     <tspan class="red">expected tool "query_metrics" not called</tspan></text>
+    <text x="16" y="440" class="dim">─────────────────────────────────────────────────────</text>
+    <text x="16" y="460"><tspan class="dim">💡</tspan> <tspan class="wh">Fix your skill, then run /edd again to verify.</tspan></text>
+    <text x="16" y="478"><tspan class="dim">   CLI equivalent:</tspan> openclaw-edd run --cases skills/mysql-sre/edd.yaml</text>
   </g>
 
-  <!-- Terminal 3: diff -->
-  <rect x="0" y="566" width="720" height="214" rx="10" class="bg"/>
-  <rect x="0" y="566" width="720" height="30" rx="10" class="bar"/>
-  <rect x="0" y="586" width="720" height="10" class="bar"/>
-  <circle cx="18" cy="581" r="6" fill="#ff5f57"/>
-  <circle cx="38" cy="581" r="6" fill="#febc2e"/>
-  <circle cx="58" cy="581" r="6" fill="#28c840"/>
-  <text class="btxt" x="360" y="585" text-anchor="middle">openclaw-edd edd diff --before round1.json --after round2.json</text>
+  <!-- Step label 3 -->
+  <text class="step" x="16" y="510">③ Fix skill → CLI diff confirms improvement</text>
+
+  <!-- Terminal 3: CLI diff -->
+  <rect x="0" y="520" width="720" height="330" rx="10" class="bg"/>
+  <rect x="0" y="520" width="720" height="28" rx="10" class="bar"/>
+  <rect x="0" y="540" width="720" height="8" class="bar"/>
+  <circle cx="16" cy="534" r="5" fill="#ff5f57"/>
+  <circle cx="32" cy="534" r="5" fill="#febc2e"/>
+  <circle cx="48" cy="534" r="5" fill="#28c840"/>
+  <text class="btxt" x="360" y="537" text-anchor="middle">Terminal</text>
 
   <g class="d">
-    <text x="16" y="618"><tspan class="dim">$</tspan> <tspan class="blu">openclaw-edd</tspan> edd diff --before round1.json --after round2.json</text>
-    <text x="16" y="644" class="pur">📊 Diff Report</text>
-    <text x="16" y="660" class="dim">─────────────────────────────────────────────────────</text>
-    <text x="32" y="680">Overall: <tspan class="yel">80%</tspan> → <tspan class="grn">100%</tspan>  <tspan class="grn">▲ +20%</tspan></text>
-    <text x="32" y="706" class="grn">🔧 Fixed:</text>
-    <text x="52" y="726">mysql_replication_lag    <tspan class="red">FAIL</tspan> → <tspan class="grn">PASS</tspan></text>
-    <text x="32" y="750" class="grn">✓ All 5 cases passing — ready for CI gate</text>
-    <text x="16" y="772"><tspan class="blu">💡 Next:</tspan> add to CI: openclaw-edd run --cases skills/*/edd.yaml --exit-code</text>
+    <text x="16" y="568"><tspan class="dim">$</tspan> <tspan class="blu">openclaw-edd</tspan> run --cases skills/mysql-sre/edd.yaml --agent main \</text>
+    <text x="16" y="586">    --output-json round2.json</text>
+    <text x="16" y="612" class="pur">⚡ openclaw-edd v0.5.0</text>
+    <text x="16" y="628" class="dim">────────────────────────────────────────────────────────────</text>
+    <text x="16" y="648">Case: <tspan class="wh">mysql_slow_query</tspan></text>
+    <text x="16" y="666">  [<tspan class="grn">✓ PASS</tspan>] 2.1s</text>
+    <text x="16" y="684">  Tool chain: <tspan class="blu">exec, query_metrics</tspan></text>
+    <text x="16" y="706">Case: <tspan class="wh">mysql_replication_lag</tspan></text>
+    <text x="16" y="724">  [<tspan class="grn">✓ PASS</tspan>] 2.8s</text>
+    <text x="16" y="742">  Tool chain: <tspan class="blu">exec, query_metrics</tspan></text>
+    <text x="16" y="762" class="dim">────────────────────────────────────────────────────────────</text>
+    <text x="16" y="782">complete: <tspan class="grn">3/3 Passed (100%)</tspan></text>
+    <text x="16" y="808"><tspan class="dim">$</tspan> <tspan class="blu">openclaw-edd</tspan> edd diff --before round1.json --after round2.json</text>
+    <text x="16" y="832">Overall: <tspan class="yel">66%</tspan> → <tspan class="grn">100%</tspan>  <tspan class="grn">▲ +34%</tspan>  Fixed: <tspan class="wh">mysql_replication_lag</tspan> <tspan class="red">FAIL</tspan>→<tspan class="grn">PASS</tspan></text>
   </g>
 </svg>
