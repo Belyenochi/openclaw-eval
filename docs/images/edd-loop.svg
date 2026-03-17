@@ -1,10 +1,7 @@
-<svg width="720" height="520" viewBox="0 0 720 520" xmlns="http://www.w3.org/2000/svg" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+<svg width="720" height="460" viewBox="0 0 720 460" xmlns="http://www.w3.org/2000/svg" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
   <style>
-    .title { font-size:17px; font-weight:600; fill:#24292f; }
-    .subtitle { font-size:13px; fill:#656d76; }
     .bt { font-size:14px; font-weight:600; text-anchor:middle; dominant-baseline:central; }
     .bs { font-size:12px; text-anchor:middle; dominant-baseline:central; }
-    .ph { font-size:11px; fill:#656d76; font-weight:500; text-anchor:middle; }
     .arr { stroke:#656d76; stroke-width:1.5; fill:none; }
   </style>
   <defs>
@@ -12,90 +9,79 @@
     <marker id="ag" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#3B6D11" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
   </defs>
 
-  <rect width="720" height="520" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
-  <text class="title" x="360" y="36" text-anchor="middle">EDD: Evaluation-Driven Development Loop</text>
-  <text class="subtitle" x="360" y="56" text-anchor="middle">Golden cases grow from real usage — test cases are recordings, not guesses</text>
+  <rect width="720" height="460" rx="12" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
 
-  <!-- Phase labels left -->
-  <text class="ph" x="30" y="116" transform="rotate(-90,30,116)">Capture</text>
-  <text class="ph" x="30" y="226" transform="rotate(-90,30,226)">Evaluate</text>
-  <text class="ph" x="30" y="336" transform="rotate(-90,30,336)">Improve</text>
-  <text class="ph" x="30" y="446" transform="rotate(-90,30,446)">Harvest</text>
+  <!-- Row 1: Capture -->
+  <rect x="50" y="30" width="195" height="58" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.8"/>
+  <text class="bt" x="147" y="50" fill="#3C3489">/edd save (plugin)</text>
+  <text class="bs" x="147" y="70" fill="#534AB7">Snapshot from session</text>
 
-  <!-- Row 1: Capture — Plugin /edd save OR CLI mine -->
-  <rect x="70" y="82" width="195" height="58" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.8"/>
-  <text class="bt" x="167" y="102" fill="#3C3489">/edd save (plugin)</text>
-  <text class="bs" x="167" y="122" fill="#534AB7">Snapshot from session</text>
+  <rect x="280" y="30" width="195" height="58" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+  <text class="bt" x="377" y="50" fill="#085041">edd mine (CLI)</text>
+  <text class="bs" x="377" y="70" fill="#0F6E56">Extract from history</text>
 
-  <rect x="300" y="82" width="195" height="58" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
-  <text class="bt" x="397" y="102" fill="#085041">edd mine (CLI)</text>
-  <text class="bs" x="397" y="122" fill="#0F6E56">Extract from history</text>
+  <rect x="510" y="34" width="140" height="50" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.8"/>
+  <text class="bt" x="580" y="54" fill="#27500A" font-size="13">edd.yaml</text>
+  <text class="bs" x="580" y="70" fill="#3B6D11">Golden cases</text>
 
-  <!-- edd.yaml output -->
-  <rect x="530" y="86" width="140" height="50" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.8"/>
-  <text class="bt" x="600" y="106" fill="#27500A" font-size="13">edd.yaml</text>
-  <text class="bs" x="600" y="122" fill="#3B6D11">Golden cases</text>
+  <line x1="245" y1="59" x2="278" y2="59" class="arr" marker-end="url(#a)"/>
+  <line x1="475" y1="59" x2="508" y2="59" class="arr" marker-end="url(#a)"/>
+  <text x="260" y="52" font-size="10" fill="#656d76" text-anchor="middle">or</text>
 
-  <line x1="265" y1="111" x2="298" y2="111" class="arr" marker-end="url(#a)"/>
-  <line x1="495" y1="111" x2="528" y2="111" class="arr" marker-end="url(#a)"/>
-  <text x="280" y="104" font-size="10" fill="#656d76" text-anchor="middle">or</text>
+  <!-- Row 2: Evaluate -->
+  <rect x="100" y="140" width="195" height="58" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+  <text class="bt" x="197" y="160" fill="#085041">run</text>
+  <text class="bs" x="197" y="180" fill="#0F6E56">Replay cases via agent</text>
 
-  <!-- Row 2: Evaluate — run + judge -->
-  <rect x="120" y="196" width="195" height="58" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
-  <text class="bt" x="217" y="216" fill="#085041">run</text>
-  <text class="bs" x="217" y="236" fill="#0F6E56">Replay cases via agent</text>
+  <rect x="330" y="140" width="130" height="58" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
+  <text class="bt" x="395" y="160" fill="#085041">judge</text>
+  <text class="bs" x="395" y="180" fill="#0F6E56">LLM scoring</text>
 
-  <rect x="350" y="196" width="130" height="58" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.8"/>
-  <text class="bt" x="415" y="216" fill="#085041">judge</text>
-  <text class="bs" x="415" y="236" fill="#0F6E56">LLM scoring</text>
-
-  <!-- /edd also runs -->
-  <rect x="520" y="196" width="150" height="58" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.8"/>
-  <text class="bt" x="595" y="216" fill="#3C3489">/edd (plugin)</text>
-  <text class="bs" x="595" y="236" fill="#534AB7">Run via subagent</text>
+  <rect x="500" y="140" width="150" height="58" rx="8" fill="#EEEDFE" stroke="#534AB7" stroke-width="0.8"/>
+  <text class="bt" x="575" y="160" fill="#3C3489">/edd (plugin)</text>
+  <text class="bs" x="575" y="180" fill="#534AB7">Run via subagent</text>
 
   <!-- Arrows row 1→2 -->
-  <path d="M600 136 L600 160 L217 160 L217 194" fill="none" class="arr" marker-end="url(#a)"/>
-  <line x1="315" y1="225" x2="348" y2="225" class="arr" marker-end="url(#a)"/>
+  <path d="M580 84 L580 108 L197 108 L197 138" fill="none" class="arr" marker-end="url(#a)"/>
+  <line x1="295" y1="169" x2="328" y2="169" class="arr" marker-end="url(#a)"/>
 
-  <!-- Row 3: Improve — suggest + apply + diff -->
-  <rect x="80" y="310" width="170" height="58" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.8"/>
-  <text class="bt" x="165" y="330" fill="#712B13">suggest</text>
-  <text class="bs" x="165" y="350" fill="#993C1D">Improvement hints</text>
+  <!-- Row 3: Improve -->
+  <rect x="60" y="252" width="170" height="58" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.8"/>
+  <text class="bt" x="145" y="272" fill="#712B13">suggest</text>
+  <text class="bs" x="145" y="292" fill="#993C1D">Improvement hints</text>
 
-  <rect x="280" y="310" width="140" height="58" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.8"/>
-  <text class="bt" x="350" y="330" fill="#712B13">apply</text>
-  <text class="bs" x="350" y="350" fill="#993C1D">Patch skills</text>
+  <rect x="260" y="252" width="140" height="58" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.8"/>
+  <text class="bt" x="330" y="272" fill="#712B13">apply</text>
+  <text class="bs" x="330" y="292" fill="#993C1D">Patch skills</text>
 
-  <rect x="450" y="310" width="210" height="58" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.8"/>
-  <text class="bt" x="555" y="330" fill="#633806">diff</text>
-  <text class="bs" x="555" y="350" fill="#854F0B">Compare round1 ↔ round2</text>
+  <rect x="430" y="252" width="220" height="58" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.8"/>
+  <text class="bt" x="540" y="272" fill="#633806">diff</text>
+  <text class="bs" x="540" y="292" fill="#854F0B">Compare round1 ↔ round2</text>
 
   <!-- Arrows row 2→3 -->
-  <path d="M217 254 L165 308" fill="none" class="arr" marker-end="url(#a)"/>
-  <line x1="250" y1="339" x2="278" y2="339" class="arr" marker-end="url(#a)"/>
-  <line x1="420" y1="339" x2="448" y2="339" class="arr" marker-end="url(#a)"/>
+  <path d="M197 198 L145 250" fill="none" class="arr" marker-end="url(#a)"/>
+  <line x1="230" y1="281" x2="258" y2="281" class="arr" marker-end="url(#a)"/>
+  <line x1="400" y1="281" x2="428" y2="281" class="arr" marker-end="url(#a)"/>
 
-  <!-- Row 4: Harvest — mine + export + CI -->
-  <rect x="80" y="420" width="170" height="58" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.8"/>
-  <text class="bt" x="165" y="440" fill="#27500A">mine</text>
-  <text class="bs" x="165" y="460" fill="#3B6D11">Extract golden cases</text>
+  <!-- Row 4: Harvest -->
+  <rect x="60" y="362" width="170" height="58" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.8"/>
+  <text class="bt" x="145" y="382" fill="#27500A">mine</text>
+  <text class="bs" x="145" y="402" fill="#3B6D11">Extract golden cases</text>
 
-  <rect x="280" y="420" width="140" height="58" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.8"/>
-  <text class="bt" x="350" y="440" fill="#27500A">export</text>
-  <text class="bs" x="350" y="460" fill="#3B6D11">JSONL / CSV</text>
+  <rect x="260" y="362" width="140" height="58" rx="8" fill="#EAF3DE" stroke="#3B6D11" stroke-width="0.8"/>
+  <text class="bt" x="330" y="382" fill="#27500A">export</text>
+  <text class="bs" x="330" y="402" fill="#3B6D11">JSONL / CSV</text>
 
-  <rect x="450" y="420" width="210" height="58" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
-  <text class="bt" x="555" y="440" fill="#444441">CI gate</text>
-  <text class="bs" x="555" y="460" fill="#656d76">Exit code → block merge</text>
+  <rect x="430" y="362" width="220" height="58" rx="8" fill="#F1EFE8" stroke="#888780" stroke-width="0.8"/>
+  <text class="bt" x="540" y="382" fill="#444441">CI gate</text>
+  <text class="bs" x="540" y="402" fill="#656d76">Exit code → block merge</text>
 
   <!-- Arrows row 3→4 -->
-  <path d="M165 368 L165 418" fill="none" class="arr" marker-end="url(#a)"/>
-  <line x1="250" y1="449" x2="278" y2="449" class="arr" marker-end="url(#a)"/>
-  <path d="M555 368 L555 418" fill="none" class="arr" marker-end="url(#a)"/>
+  <path d="M145 310 L145 360" fill="none" class="arr" marker-end="url(#a)"/>
+  <line x1="230" y1="391" x2="258" y2="391" class="arr" marker-end="url(#a)"/>
+  <path d="M540 310 L540 360" fill="none" class="arr" marker-end="url(#a)"/>
 
   <!-- Feedback: export → back to edd.yaml -->
-  <path d="M350 478 Q350 500 600 500 Q685 500 685 111 Q685 86 672 86" fill="none" stroke="#3B6D11" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#ag)"/>
-  <text x="698" y="300" font-size="11" fill="#3B6D11" text-anchor="middle" transform="rotate(90,698,300)">Feed back to golden cases</text>
+  <path d="M330 420 Q330 442 580 442 Q672 442 672 59 Q672 34 652 34" fill="none" stroke="#3B6D11" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#ag)"/>
 
 </svg>
