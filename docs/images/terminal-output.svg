@@ -27,9 +27,9 @@
   <text class="btxt" x="360" y="43" text-anchor="middle">OpenClaw — mysql-sre agent</text>
 
   <g class="d">
-    <text x="16" y="74"><tspan class="dim">user</tspan><tspan class="wh">  MySQL 最近有慢查询吗？</tspan></text>
+    <text x="16" y="74"><tspan class="dim">user</tspan><tspan class="wh">  Any slow queries in MySQL recently?</tspan></text>
     <text x="16" y="96"><tspan class="dim">agent</tspan> <tspan class="grn">exec</tspan>(check_health prod-01) → <tspan class="grn">query_metrics</tspan>(p99_latency 1h)</text>
-    <text x="16" y="116"><tspan class="dim">     </tspan> <tspan class="wh">"检测到慢查询，P99 延迟 120ms，超过阈值"</tspan></text>
+    <text x="16" y="116"><tspan class="dim">     </tspan> <tspan class="wh">"Detected slow query, P99 latency 120ms, exceeds threshold"</tspan></text>
     <text x="16" y="146"><tspan class="dim">user</tspan><tspan class="pur">  /edd save mysql-sre</tspan></text>
     <text x="16" y="170"><tspan class="grn">✅ Saved golden case for skill "mysql-sre"</tspan></text>
     <text x="16" y="190">   Expected tools: <tspan class="blu">exec, query_metrics</tspan>  Saved to: <tspan class="dim">skills/mysql-sre/edd.yaml</tspan></text>
@@ -50,9 +50,9 @@
   <g class="d">
     <text x="16" y="292"><tspan class="dim">user</tspan><tspan class="pur">  /edd</tspan></text>
     <text x="16" y="320"><tspan class="pur">🧪 EDD: 2/3 passed — 1 regression(s)</tspan></text>
-    <text x="16" y="348">  <tspan class="grn">✅</tspan> "MySQL 最近有慢查询吗" <tspan class="grn">passed</tspan> <tspan class="dim">(2340ms)</tspan></text>
-    <text x="16" y="370">  <tspan class="grn">✅</tspan> "检查连接池状态" <tspan class="grn">passed</tspan> <tspan class="dim">(1820ms)</tspan></text>
-    <text x="16" y="392">  <tspan class="red">❌</tspan> "主从复制延迟多少" <tspan class="red">failed</tspan> <tspan class="yel">⚠️ REGRESSION</tspan> <tspan class="dim">(3210ms)</tspan></text>
+    <text x="16" y="348">  <tspan class="grn">✅</tspan> "Any slow queries in MySQL recently" <tspan class="grn">passed</tspan> <tspan class="dim">(2340ms)</tspan></text>
+    <text x="16" y="370">  <tspan class="grn">✅</tspan> "Check connection pool status" <tspan class="grn">passed</tspan> <tspan class="dim">(1820ms)</tspan></text>
+    <text x="16" y="392">  <tspan class="red">❌</tspan> "How much replication lag" <tspan class="red">failed</tspan> <tspan class="yel">⚠️ REGRESSION</tspan> <tspan class="dim">(3210ms)</tspan></text>
     <text x="16" y="412">     <tspan class="red">expected tool "query_metrics" not called</tspan></text>
     <text x="16" y="440" class="dim">─────────────────────────────────────────────────────</text>
     <text x="16" y="460"><tspan class="dim">💡</tspan> <tspan class="wh">Fix your skill, then run /edd again to verify.</tspan></text>
