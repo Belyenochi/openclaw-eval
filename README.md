@@ -21,14 +21,14 @@ You edit a skill. Did you break something else? There's no way to know without r
 
 ## How It Works
 
-<p align="center"><img src="docs/images/architecture.svg" width="680"/></p>
-
 openclaw-edd has two entry points that share the same `edd.yaml` format:
 
 - **Plugin** (`/edd save`, `/edd`) — lives inside the OpenClaw chat interface. Save a good interaction as a golden case, replay all cases after editing a skill.
 - **CLI** (`openclaw-edd`) — runs anywhere: local terminal, team review, or CI pipeline. Mine cases from session history, compare runs, score with LLM.
 
 Session files are the single source of truth. No instrumentation, no config changes, no gateway restarts required.
+
+<p align="center"><img src="docs/images/architecture.svg" width="680"/></p>
 
 ## Quick Start
 
@@ -50,16 +50,35 @@ openclaw-edd run --quickstart --agent main  # run 6 built-in cases against your 
 
 See the [User Guide](./docs/USER_JOURNEY.md) for the full walkthrough.
 
-## EDD Loop
+## The EDD Loop
 
 <p align="center"><img src="docs/images/edd-loop.svg" width="680"/></p>
 
-| Phase | Command |
-|-------|---------|
-| **Capture** | `/edd save` · `openclaw-edd edd mine --output mined.yaml` |
-| **Evaluate** | `openclaw-edd run --cases edd.yaml --output-json report.json` |
-| **Improve** | `openclaw-edd edd suggest --report report.json` · `edd apply` |
-| **Harvest** | `openclaw-edd edd diff --before r1.json --after r2.json` · `edd export` |
+**Capture** — get golden cases into `edd.yaml`
+```bash
+/edd save                                        # in chat: snapshot a good interaction
+openclaw-edd edd mine --output mined.yaml        # from session history
+openclaw-edd edd review --input mined.yaml       # approve / reject mined cases
+```
+
+**Evaluate** — run cases and collect results
+```bash
+openclaw-edd run --cases edd.yaml --output-json report.json
+openclaw-edd run --quickstart --agent main --summary-line
+```
+
+**Improve** — understand what failed and fix it
+```bash
+openclaw-edd edd suggest --report report.json    # AI-powered suggestions
+openclaw-edd edd apply                           # apply suggestions to workspace
+openclaw-edd edd judge --report report.json      # LLM scoring across dimensions
+```
+
+**Harvest** — measure progress and share results
+```bash
+openclaw-edd edd diff --before r1.json --after r2.json
+openclaw-edd edd export --input golden.jsonl --format csv
+```
 
 ## Test Case Format
 

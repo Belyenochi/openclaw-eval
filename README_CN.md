@@ -21,14 +21,14 @@ OpenClaw Agent 的评测驱动开发工具 —— 从真实交互中保存 golde
 
 ## 工作原理
 
-<p align="center"><img src="docs/images/architecture.svg" width="680"/></p>
-
 openclaw-edd 有两个入口，共享同一套 `edd.yaml` 格式：
 
 - **插件**（`/edd save`、`/edd`）—— 运行在 OpenClaw 对话界面内。把一次好的交互保存为 golden case，修改 skill 后回放所有用例。
 - **CLI**（`openclaw-edd`）—— 在任何地方运行：本地终端、团队 review 或 CI 流水线。从 session 历史挖掘用例、对比两次运行、用 LLM 打分。
 
 Session 文件是唯一的数据来源。无需埋点、无需修改配置、无需重启 Gateway。
+
+<p align="center"><img src="docs/images/architecture.svg" width="680"/></p>
 
 ## 快速开始
 
@@ -54,12 +54,31 @@ openclaw-edd run --quickstart --agent main  # 运行 6 个内置用例
 
 <p align="center"><img src="docs/images/edd-loop.svg" width="680"/></p>
 
-| 阶段 | 命令 |
-|------|------|
-| **Capture** | `/edd save` · `openclaw-edd edd mine --output mined.yaml` |
-| **Evaluate** | `openclaw-edd run --cases edd.yaml --output-json report.json` |
-| **Improve** | `openclaw-edd edd suggest --report report.json` · `edd apply` |
-| **Harvest** | `openclaw-edd edd diff --before r1.json --after r2.json` · `edd export` |
+**Capture** — 把 golden cases 写入 `edd.yaml`
+```bash
+/edd save                                        # 在对话中：快照一次好的交互
+openclaw-edd edd mine --output mined.yaml        # 从 session 历史挖掘
+openclaw-edd edd review --input mined.yaml       # 审核挖掘的用例
+```
+
+**Evaluate** — 运行用例，收集结果
+```bash
+openclaw-edd run --cases edd.yaml --output-json report.json
+openclaw-edd run --quickstart --agent main --summary-line
+```
+
+**Improve** — 分析失败原因并修复
+```bash
+openclaw-edd edd suggest --report report.json    # AI 驱动的改进建议
+openclaw-edd edd apply                           # 将建议应用到 workspace
+openclaw-edd edd judge --report report.json      # LLM 多维度评分
+```
+
+**Harvest** — 衡量进展并沉淀结果
+```bash
+openclaw-edd edd diff --before r1.json --after r2.json
+openclaw-edd edd export --input golden.jsonl --format csv
+```
 
 ## 用例格式
 
